@@ -1,7 +1,7 @@
 const twilio = require('twilio');
 
 async function getWhoopMetrics() {
-  const base = 'https://api.prod.whoop.com/developer/v1';
+  const base = 'https://api.prod.whoop.com/developer/v2';
   let token = process.env.WHOOP_ACCESS_TOKEN;
 
   const whoopGet = async (endpoint) => {
@@ -31,9 +31,9 @@ async function getWhoopMetrics() {
     try { return JSON.parse(text); } catch(e) { throw new Error('WHOOP API error on ' + endpoint + ': ' + text); }
   };
 
-  const rec = await whoopGet('/recovery?limit=1');
-  const cycle = await whoopGet('/cycle?limit=1');
-  const sleep = await whoopGet('/sleep?limit=1');
+const rec = await whoopGet('/recovery?limit=1');
+const cycle = await whoopGet('/cycle?limit=1');
+const sleep = await whoopGet('/activity/sleep?limit=1');
 
   const recovery = rec.records && rec.records[0];
   const sl = sleep.records && sleep.records[0];
