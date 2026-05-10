@@ -1,11 +1,11 @@
 const twilio = require('twilio');
- 
+
 // ── WHOOP ─────────────────────────────────────────────────
 async function getWhoopMetrics() {
   const token = process.env.WHOOP_ACCESS_TOKEN;
   const base  = 'https://api.prod.whoop.com/developer/v1';
- 
-  async function whoopGet(endpoint) {
+
+  const whoopGet = async (endpoint) => {
     let res = await fetch(`${base}${endpoint}`, {
       headers: { Authorization: `Bearer ${token}` }
     });
@@ -26,18 +26,18 @@ async function getWhoopMetrics() {
       });
     }
     return res.json();
-  }
- 
+  };
+
   const [rec, cycle, sleep] = await Promise.all([
     whoopGet('/recovery?limit=1'),
     whoopGet('/cycle?limit=1'),
     whoopGet('/sleep?limit=1'),
   ]);
- 
+
   const recovery = rec.records?.[0];
   const sl       = sleep.records?.[0];
   const cy       = cycle.records?.[0];
- 
+
   return {
     recoveryScore: Math.round(recovery?.score?.recovery_score ?? 0),
     hrv:           Math.round(recovery?.score?.hrv_rmssd_milli ?? 0),
@@ -48,19 +48,19 @@ async function getWhoopMetrics() {
     strain:        cy?.score?.strain?.toFixed(1) ?? '0.0',
   };
 }
- 
+
 // ── MESSAGE ────────────────────────────────────────────────
 function buildMessage(m, userName) {
   const rec = m.recoveryScore;
   const hrv = m.hrv;
   const strain = parseFloat(m.strain);
- 
+
   // ── MODE ──
   let mode;
   if (rec >= 67) mode = 'performance';
   else if (rec >= 34) mode = 'recovery';
   else mode = 'repos';
- 
+
   // ── INTRO FOOD (privilégie...) ──
   const foodIntro = {
     performance:
@@ -70,7 +70,7 @@ function buildMessage(m, userName) {
     repos:
       `Privilégie les aliments faciles à digérer aujourd'hui. Ton corps est en zone rouge à ${rec}% — toute énergie dépensée en digestion est volée à ta récupération. Repas légers, anti-inflammatoires, et dîner avant 19h30 impérativement.`,
   }[mode];
- 
+
   // ── MEALS avec explications ──
   const meals = {
     performance: {
@@ -161,7 +161,7 @@ function buildMessage(m, userName) {
       hydration: '3.0 L',
     },
   }[mode];
- 
+
   // ── SPORT avec explication ──
   let sport;
   if (rec >= 67) {
@@ -197,27 +197,27 @@ function buildMessage(m, userName) {
       why: `💡 Stop. À ${rec}% avec un RHR élevé, tout entraînement aujourd'hui retarderait ta récupération de 24 à 48h. Ton corps est en mode réparation d'urgence — il a besoin de toute son énergie pour ça, pas pour performer. Une marche courte suffit pour maintenir la circulation. La seule chose qui te fera remonter : sommeil, nutrition, et zéro stress physique.`,
     };
   }
- 
+
   // ── SIESTE ──
   const sieste = rec < 50 || parseFloat(m.sleepHours) < 6.5
     ? 'Oui — 20 min entre 13h et 15h\n💡 Une sieste courte de 20 min réduit le cortisol de 30% et améliore la vigilance sans créer d\'inertie de sommeil. Au-delà de 25 min, tu rentres en sommeil profond et te réveilles dans un état pire.'
     : 'Non nécessaire aujourd\'hui';
- 
+
   // ── BEDTIME ──
   const bed = rec < 34 ? '21h30' : rec < 50 ? '22h00' : rec < 67 ? '22h30' : '23h00';
- 
+
   // ── CAFÉINE ──
   const caff = rec < 34 ? '13h00' : rec < 50 ? '13h30' : '14h00';
- 
+
   // ── LABELS ──
   const recEmoji   = rec >= 67 ? '🟢' : rec >= 34 ? '🟡' : '🔴';
   const sleepEmoji = m.sleepPerf >= 80 ? '🟢' : m.sleepPerf >= 60 ? '🟡' : '🔴';
   const hrvEmoji   = hrv >= 70 ? '🟢' : hrv >= 50 ? '🟡' : '🔴';
- 
+
   return `*Iris ✦*
- 
+
 Bonjour ${userName} ! Ton recap Vitae est prêt 👋
- 
+
 ━━━━━━━━━━━━━━━
 🌙 *TA NUIT*
 ━━━━━━━━━━━━━━━
@@ -226,44 +226,44 @@ Sommeil : ${m.sleepPerf}% (${m.sleepHours}h) ${sleepEmoji}
 HRV : ${hrv}ms ${hrvEmoji}
 FC repos : ${m.rhr} bpm
 Strain hier : ${m.strain}
- 
+
 ━━━━━━━━━━━━━━━
 📊 *ÉTAT DU JOUR*
 ━━━━━━━━━━━━━━━
 Mode : ${meals.modeLabel}
 ${meals.modeContext}
- 
+
 ━━━━━━━━━━━━━━━
 🍽️ *ALIMENTATION*
 ━━━━━━━━━━━━━━━
 ${foodIntro}
- 
+
 🌅 *Petit-déjeuner*
 ${meals.breakfast.name}
 ${meals.breakfast.detail}
 → ${meals.breakfast.macros}
 ${meals.breakfast.why}
- 
+
 ☀️ *Déjeuner*
 ${meals.lunch.name}
 ${meals.lunch.detail}
 → ${meals.lunch.macros}
 ${meals.lunch.why}
- 
+
 ⚡ *Snack (16h)*
 ${meals.snack.name}
 ${meals.snack.detail}
 → ${meals.snack.macros}
 ${meals.snack.why}
- 
+
 🌙 *Dîner*
 ${meals.dinner.name}
 ${meals.dinner.detail}
 → ${meals.dinner.macros}
 ${meals.dinner.why}
- 
+
 💧 Hydratation : ${meals.hydration}
- 
+
 ━━━━━━━━━━━━━━━
 💪 *SPORT*
 ━━━━━━━━━━━━━━━
@@ -272,7 +272,7 @@ ${meals.dinner.why}
 ❤️ Intensité : ${sport.intensite}
 🚶 Pas cible : ${sport.pas}
 ${sport.why}
- 
+
 ━━━━━━━━━━━━━━━
 😴 *RÉCUPÉRATION*
 ━━━━━━━━━━━━━━━
@@ -280,11 +280,11 @@ Sieste : ${sieste}
 ☕ Caféine : Stop à ${caff}
 🌙 Coucher recommandé : ${bed}
 🍷 Alcool : ${rec < 50 ? '🚫 Éviter absolument — aggrave le HRV de 8-12 points' : '⚠️ Avec modération si possible'}
- 
+
 ━━━━━━━━━━━━━━━
 _Iris · Powered by Vitae & WHOOP_`;
 }
- 
+
 // ── HANDLER ───────────────────────────────────────────────
 module.exports = async (req, res) => {
   const auth   = req.headers.authorization;
@@ -292,24 +292,24 @@ module.exports = async (req, res) => {
   if (secret && auth !== `Bearer ${secret}`) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
- 
+
   const userName = process.env.USER_NAME || 'Arthur';
- 
+
   try {
     const metrics = await getWhoopMetrics();
     const message = buildMessage(metrics, userName);
- 
+
     const client = twilio(
       process.env.TWILIO_ACCOUNT_SID,
       process.env.TWILIO_AUTH_TOKEN
     );
- 
+
     const result = await client.messages.create({
       from: process.env.TWILIO_WHATSAPP_FROM,
       to:   process.env.YOUR_WHATSAPP_NUMBER,
       body: message,
     });
- 
+
     console.log(`[Iris] ✓ Sent — SID: ${result.sid}`);
     return res.status(200).json({
       success:  true,
@@ -317,13 +317,13 @@ module.exports = async (req, res) => {
       mode:     metrics.recoveryScore >= 67 ? 'performance' : metrics.recoveryScore >= 34 ? 'recovery' : 'repos',
       sid:      result.sid,
     });
- 
+
   } catch (err) {
     console.error('[Iris] Error:', err.message);
     return res.status(500).json({ error: err.message });
   }
 };
- 
+
   async function whoopGet(endpoint) {
     let res = await fetch(`${base}${endpoint}`, {
       headers: { Authorization: `Bearer ${token}` }
@@ -347,17 +347,17 @@ module.exports = async (req, res) => {
     }
     return res.json();
   }
- 
+
   const [rec, cycle, sleep] = await Promise.all([
     whoopGet('/recovery?limit=1'),
     whoopGet('/cycle?limit=1'),
     whoopGet('/sleep?limit=1'),
   ]);
- 
+
   const recovery = rec.records?.[0];
   const sl       = sleep.records?.[0];
   const cy       = cycle.records?.[0];
- 
+
   return {
     recoveryScore: Math.round(recovery?.score?.recovery_score ?? 0),
     hrv:           Math.round(recovery?.score?.hrv_rmssd_milli ?? 0),
@@ -368,11 +368,11 @@ module.exports = async (req, res) => {
     strain:        cy?.score?.strain?.toFixed(1) ?? '0.0',
   };
 }
- 
+
 // ── RECOMMENDATIONS ────────────────────────────────────────
 function buildMessage(m, userName) {
   const rec = m.recoveryScore;
- 
+
   // Mode
   let mode, modeLabel, modeContext;
   if (rec >= 67) {
@@ -385,7 +385,7 @@ function buildMessage(m, userName) {
     mode = 'repos'; modeLabel = '🧘 Repos total';
     modeContext = 'Ton corps est en zone rouge. Zéro effort aujourd\'hui.';
   }
- 
+
   // Meals
   const meals = {
     performance: {
@@ -410,32 +410,32 @@ function buildMessage(m, userName) {
       hydration: '3.0 L',
     },
   }[mode];
- 
+
   // Sport
   let sport;
   if (rec >= 67)      sport = { duree: '1h',       type: 'HIIT ou Musculation',          intensite: '75-85% FC max', pas: '12 000 pas' };
   else if (rec >= 50) sport = { duree: '45 min',   type: 'Musculation légère ou Zone 2', intensite: '60-70% FC max', pas: '10 000 pas' };
   else if (rec >= 34) sport = { duree: '30 min',   type: 'Marche ou Yoga doux',          intensite: '50-60% FC max', pas: '7 000 pas'  };
   else                sport = { duree: 'Repos',    type: 'Marche douce uniquement',      intensite: '—',             pas: '5 000 pas'  };
- 
+
   // Sieste
   const sieste = rec < 50 ? 'Oui — 20 min entre 13h et 15h' : 'Non nécessaire';
- 
+
   // Bedtime
   const bed = rec < 34 ? '21h30' : rec < 50 ? '22h00' : rec < 67 ? '22h30' : '23h00';
- 
+
   // Caféine
   const caff = rec < 34 ? '13h00' : rec < 50 ? '13h30' : '14h00';
- 
+
   // Labels
   const recEmoji  = rec >= 67 ? '🟢' : rec >= 34 ? '🟡' : '🔴';
   const sleepEmoji = m.sleepPerf >= 80 ? '🟢' : m.sleepPerf >= 60 ? '🟡' : '🔴';
   const hrvEmoji  = m.hrv >= 70 ? '🟢' : m.hrv >= 50 ? '🟡' : '🔴';
- 
+
   return `*Iris ✦*
- 
+
 Bonjour ${userName} ! Ton recap Vitae est prêt 👋
- 
+
 ━━━━━━━━━━━━━━━
 🌙 *TA NUIT*
 ━━━━━━━━━━━━━━━
@@ -444,13 +444,13 @@ Sommeil : ${m.sleepPerf}% (${m.sleepHours}h) ${sleepEmoji}
 HRV : ${m.hrv}ms ${hrvEmoji}
 FC repos : ${m.rhr} bpm
 Strain hier : ${m.strain}
- 
+
 ━━━━━━━━━━━━━━━
 📊 *ÉTAT DU JOUR*
 ━━━━━━━━━━━━━━━
 Mode : ${modeLabel}
 ${modeContext}
- 
+
 ━━━━━━━━━━━━━━━
 🍽️ *ALIMENTATION*
 ━━━━━━━━━━━━━━━
@@ -458,24 +458,24 @@ ${modeContext}
 ${meals.breakfast.name}
 ${meals.breakfast.detail}
 → ${meals.breakfast.macros}
- 
+
 ☀️ *Déjeuner*
 ${meals.lunch.name}
 ${meals.lunch.detail}
 → ${meals.lunch.macros}
- 
+
 ⚡ *Snack (16h)*
 ${meals.snack.name}
 ${meals.snack.detail}
 → ${meals.snack.macros}
- 
+
 🌙 *Dîner*
 ${meals.dinner.name}
 ${meals.dinner.detail}
 → ${meals.dinner.macros}
- 
+
 💧 Hydratation : ${meals.hydration}
- 
+
 ━━━━━━━━━━━━━━━
 💪 *SPORT*
 ━━━━━━━━━━━━━━━
@@ -483,18 +483,18 @@ ${meals.dinner.detail}
 🏋️ Type : ${sport.type}
 ❤️ Intensité : ${sport.intensite}
 🚶 Pas cible : ${sport.pas}
- 
+
 ━━━━━━━━━━━━━━━
 😴 *RÉCUPÉRATION*
 ━━━━━━━━━━━━━━━
 Sieste : ${sieste}
 ☕ Caféine : Stop à ${caff}
 🌙 Coucher : ${bed}
- 
+
 ━━━━━━━━━━━━━━━
 _Iris · Powered by Vitae & WHOOP_`;
 }
- 
+
 // ── HANDLER ───────────────────────────────────────────────
 module.exports = async (req, res) => {
   // Security check
@@ -503,30 +503,29 @@ module.exports = async (req, res) => {
   if (secret && auth !== `Bearer ${secret}`) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
- 
+
   const userName = process.env.USER_NAME || 'Arthur';
- 
+
   try {
     const metrics = await getWhoopMetrics();
     const message = buildMessage(metrics, userName);
- 
+
     const client = twilio(
       process.env.TWILIO_ACCOUNT_SID,
       process.env.TWILIO_AUTH_TOKEN
     );
- 
+
     const result = await client.messages.create({
       from: process.env.TWILIO_WHATSAPP_FROM,
       to:   process.env.YOUR_WHATSAPP_NUMBER,
       body: message,
     });
- 
+
     console.log(`[Iris] ✓ Sent — SID: ${result.sid}`);
     return res.status(200).json({ success: true, recovery: metrics.recoveryScore, sid: result.sid });
- 
+
   } catch (err) {
     console.error('[Iris] Error:', err.message);
     return res.status(500).json({ error: err.message });
   }
 };
- 
