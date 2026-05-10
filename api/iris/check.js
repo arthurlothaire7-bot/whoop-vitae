@@ -1,8 +1,8 @@
 const twilio = require('twilio');
 
 async function getWhoopMetrics() {
-  const token = process.env.WHOOP_ACCESS_TOKEN;
   const base = 'https://api.prod.whoop.com/developer/v1';
+  let token = process.env.WHOOP_ACCESS_TOKEN;
 
   const whoopGet = async (endpoint) => {
     let res = await fetch(base + endpoint, {
@@ -19,17 +19,21 @@ async function getWhoopMetrics() {
           client_secret: process.env.WHOOP_CLIENT_SECRET,
         })
       });
-      const t = await r.json();
+      const text = await r.text();
+      let t;
+      try { t = JSON.parse(text); } catch(e) { throw new Error('Token refresh failed: ' + text); }
+      token = t.access_token;
       res = await fetch(base + endpoint, {
-        headers: { Authorization: 'Bearer ' + t.access_token }
+        headers: { Authorization: 'Bearer ' + token }
       });
     }
-    return res.json();
+    const text = await res.text();
+    try { return JSON.parse(text); } catch(e) { throw new Error('WHOOP API error on ' + endpoint + ': ' + text); }
   };
 
-const rec = await whoopGet('/v1/recovery?limit=1');
-const cycle = await whoopGet('/v1/cycle?limit=1');
-const sleep = await whoopGet('/v1/sleep?limit=1');
+  const rec = await whoopGet('/recovery?limit=1');
+  const cycle = await whoopGet('/cycle?limit=1');
+  const sleep = await whoopGet('/sleep?limit=1');
 
   const recovery = rec.records && rec.records[0];
   const sl = sleep.records && sleep.records[0];
@@ -74,7 +78,7 @@ function buildMessage(m, userName) {
       breakfast: { name: 'Smoothie Bowl Anti-Inflammatoire', detail: 'Myrtilles · Curcuma · Yaourt grec · Poivre noir', macros: '22g P · 52g G · 390 kcal', why: '💡 Les anthocyanines des myrtilles + curcumine ciblent les cytokines inflammatoires. Le poivre noir multiplie l\'absorption de curcumine par 20.' },
       lunch: { name: 'Bowl Saumon & Quinoa', detail: 'Saumon sauvage · Quinoa · Concombre · Citron', macros: '42g P · 45g G · 510 kcal', why: '💡 L\'EPA et DHA du saumon réduisent directement les cytokines pro-inflammatoires liées à ta baisse de HRV. Effet visible sous 24-48h.' },
       snack: { name: 'Amandes & Cerises acidulées', detail: 'Amandes · Cerises séchées · Chocolat noir 85%', macros: '8g P · 28g G · 280 kcal', why: '💡 76mg de magnésium par 30g d\'amandes active les récepteurs GABA. Les cerises contiennent des précurseurs de mélatonine.' },
-      dinner: { name: 'Bouillon Poulet Curcuma', detail: 'Blanc de poulet · Bouillon d\'os · Gingembre · Curcuma', macros: '35g P · 22g G · 340 kcal', why: '💡 Repas léger intentionnellement — moins tu digères, plus ton corps récupère. Gingembre + curcuma agissent toute la nuit.' },
+      dinner: { name: 'Bouillon Poulet Curcuma', detail: 'Blanc de poulet · Bouillon d\'os · Gingembre · Curcuma', macros: '35g P · 22g G · 340 kcal', why: '💡 Repas léger — moins tu digères, plus ton corps récupère. Gingembre + curcuma agissent toute la nuit.' },
       hydration: '2.6 L'
     },
     repos: {
@@ -96,7 +100,7 @@ function buildMessage(m, userName) {
   } else if (rec >= 34) {
     sport = { duree: '30 min max', type: 'Marche ou Yoga doux', intensite: '50-60% FC max', pas: '7 000 pas', why: '💡 La marche active la circulation lymphatique sans stress supplémentaire. 30 minutes suffisent — plus serait contre-productif.' };
   } else {
-    sport = { duree: 'Aucun entraînement', type: 'Repos actif — marche douce', intensite: '—', pas: '5 000 pas', why: '💡 Stop. À ' + rec + '%, tout entraînement retarderait ta récupération de 24-48h. Ton seul objectif : récupérer.' };
+    sport = { duree: 'Aucun entraînement', type: 'Repos actif — marche douce', intensite: '—', pas: '5 000 pas', why: '💡 Stop. À ' + rec + '%, tout entraînement retarderait ta récupération de 24-48h.' };
   }
 
   var sieste = (rec < 50 || parseFloat(m.sleepHours) < 6.5)
