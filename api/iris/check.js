@@ -44,6 +44,10 @@ async function getWhoopMetrics() {
   };
 }
 
+function meal(label, name, ingredients, macros, why, alternatives) {
+  return '*' + label + '* — ' + name + '\n' + ingredients + '\n→ ' + macros + '\nPourquoi : ' + why + '\nAlternatives : ' + alternatives;
+}
+
 function buildMessage(m, userName) {
   var rec  = m.recoveryScore;
   var hrv  = m.hrv;
@@ -60,66 +64,129 @@ function buildMessage(m, userName) {
   var mL, fW, bf, lu, sn, di, hy, spT, spD, spP, spW;
 
   if (mode === 'perf') {
-    mL  = '⚡ Performance';
-    fW  = 'Score ' + rec + '% : corps pret pour effort intense. Priorite glucides + proteines.';
-    bf  = '*Breakfast* — Power Oat Bowl\nAvoine · Whey · Banane · Miel\n→ 38g P · 82g G · 558 kcal\n💡 Glucides stables 3-4h. Whey active synthese musculaire.';
-    lu  = '*Lunch* — Bowl Poulet & Riz\nPoulet · Riz brun · Brocolis\n→ 45g P · 68g G · 580 kcal\n💡 Riz brun recharge glycogene sans pic insulinique.';
-    sn  = '*En-cas* — Shake pre-seance\nBanane · Whey · Dattes\n→ 28g P · 48g G · 340 kcal\n💡 30 min avant effort. Energie immediate.';
-    di  = '*Diner* — Steak & Patate douce\nSteak · Patate douce · Asperges\n→ 42g P · 52g G · 538 kcal\n💡 Recharge glycogene optimale 4-6h post-effort.';
-    hy  = '3.2 L';
-    spT = 'HIIT ou Muscu lourde'; spD = '1h'; spP = '12 000 pas';
-    spW = '💡 HRV ' + hrv + 'ms + score ' + rec + '% = signal vert. Ne rate pas cette fenetre.';
+    mL = '⚡ Performance';
+    fW = 'Ton score de ' + rec + '% indique que ton corps est pleinement recupere. C\'est le bon jour pour pousser fort. Priorite aux glucides et aux proteines pour alimenter l\'effort.';
+    bf = meal('Breakfast', 'Power Oat Bowl',
+      'Avoine · Whey · Banane · Miel',
+      '38g P · 82g G · 558 kcal',
+      'Ton corps est pret a encaisser un effort intense. L\'avoine te donne de l\'energie stable sur 3-4h sans crash. La whey active la construction musculaire des le reveil.',
+      'Granola + yaourt grec · Pain complet + oeufs · Smoothie banane + amandes');
+    lu = meal('Lunch', 'Bowl Poulet & Riz complet',
+      'Poulet · Riz brun · Brocolis · Huile olive',
+      '45g P · 68g G · 580 kcal',
+      'Apres l\'effort, tes muscles ont besoin de proteines pour se reconstruire et de glucides pour recharger. Le riz brun evite le pic de glycemie qui provoquerait une fatigue apres-midi.',
+      'Saumon + riz · Thon + pates · Oeufs + patate douce');
+    sn = meal('En-cas', 'Shake pre-seance',
+      'Banane · Whey · Dattes · Lait',
+      '28g P · 48g G · 340 kcal',
+      'A prendre 30 min avant ton entrainement. Le sucre rapide de la banane te donne de l\'energie immediatement disponible. La whey prepare tes muscles avant meme que tu commences.',
+      'Banane + beurre amande · Pain + miel · Dattes + noix de cajou');
+    di = meal('Diner', 'Steak & Patate douce',
+      'Steak grass-fed · Patate douce · Asperges',
+      '42g P · 52g G · 538 kcal',
+      'Le soir apres un gros effort, ton corps a besoin de proteines de qualite pour reparer les fibres musculaires. La patate douce recharge les reserves d\'energie pour demain.',
+      'Poulet + riz blanc · Saumon + quinoa · Oeufs + legumes rotis');
+    hy = '3.2 L'; spT = 'HIIT ou Muscu lourde'; spD = '1h'; spP = '12 000 pas';
+    spW = 'HRV ' + hrv + 'ms + score ' + rec + '% = ton systeme nerveux est pleinement recupere. C\'est exactement le signal pour pousser fort. Ces jours a ' + rec + '%+ sont rares, ne les gache pas.';
+
   } else if (mode === 'rec') {
-    mL  = '🔄 Recovery';
-    fW  = 'HRV ' + hrv + 'ms : inflammation active. Priorite anti-inflammatoire.';
-    bf  = '*Breakfast* — Smoothie Myrtilles\nMyrtilles · Curcuma · Yaourt · Poivre noir\n→ 22g P · 52g G · 390 kcal\n💡 Curcumine cible inflammation. Poivre noir x20 absorption.';
-    lu  = '*Lunch* — Bowl Saumon & Quinoa\nSaumon · Quinoa · Concombre · Citron\n→ 42g P · 45g G · 510 kcal\n💡 EPA/DHA reduit cytokines pro-inflammatoires. Effet 24-48h.';
-    sn  = '*En-cas* — Amandes & Cerises\nAmandes · Cerises · Chocolat 85%\n→ 8g P · 28g G · 280 kcal\n💡 Magnesium active GABA. Cerises = melatonine.';
-    di  = '*Diner* — Bouillon Poulet Curcuma\nPoulet · Bouillon os · Gingembre\n→ 35g P · 22g G · 340 kcal\n💡 Leger = plus energie pour reparer. Anti-inflam toute la nuit.';
-    hy  = '2.6 L';
-    spT = str > 12 ? 'Yoga ou Mobilite' : 'Muscu legere ou Zone 2'; spD = '45 min'; spP = '10 000 pas';
-    spW = '💡 HIIT aujourd hui = cortisol + HRV pire demain. Zone 2 maintient adaptation.';
+    mL = '🔄 Recovery';
+    fW = 'Ton HRV de ' + hrv + 'ms indique que ton corps est encore en train de recuperer. L\'inflammation est active. Chaque repas aujourd\'hui doit aider ton corps a reduire cette inflammation et restaurer ton systeme nerveux.';
+    bf = meal('Breakfast', 'Smoothie Myrtilles & Curcuma',
+      'Myrtilles · Curcuma · Yaourt grec · Poivre noir',
+      '22g P · 52g G · 390 kcal',
+      'Les myrtilles et le curcuma sont parmi les anti-inflammatoires les plus puissants. Ensemble ils reduisent directement les marqueurs d\'inflammation qui font baisser ton HRV. Le poivre noir est obligatoire : il multiplie l\'effet du curcuma par 20.',
+      'Porridge + fruits rouges · Yaourt + granola · Oeufs + epinards');
+    lu = meal('Lunch', 'Bowl Saumon & Quinoa',
+      'Saumon sauvage · Quinoa · Concombre · Citron',
+      '42g P · 45g G · 510 kcal',
+      'Le saumon sauvage est riche en omega-3, des acides gras qui agissent directement sur l\'inflammation responsable de ton HRV bas. C\'est le repas le plus important de ta journee. Effet visible en 24-48h.',
+      'Sardines + riz · Maquereau + patate douce · Thon + salade');
+    sn = meal('En-cas', 'Amandes & Cerises acidulees',
+      'Amandes · Cerises sechees · Chocolat 85%',
+      '8g P · 28g G · 280 kcal',
+      'Les amandes apportent du magnesium qui aide ton systeme nerveux a se calmer. Les cerises acidulees contiennent des precurseurs de melatonine pour preparer un bon sommeil ce soir. A prendre vers 16h.',
+      'Noix + fruits secs · Yaourt + miel · Banane + beurre amande');
+    di = meal('Diner', 'Bouillon Poulet Curcuma',
+      'Poulet · Bouillon d\'os · Gingembre · Kale',
+      '35g P · 22g G · 340 kcal',
+      'Un repas leger le soir permet a ton corps de consacrer toute son energie a la recuperation pendant la nuit plutot qu\'a la digestion. Le gingembre et le curcuma continuent leur action anti-inflammatoire pendant ton sommeil.',
+      'Poisson blanc vapeur · Soupe legumes + poulet · Omelette + salade');
+    hy = '2.6 L'; spT = str > 12 ? 'Yoga ou Mobilite' : 'Muscu legere ou Zone 2'; spD = '45 min'; spP = '10 000 pas';
+    spW = 'Avec un HRV de ' + hrv + 'ms, un entrainement intense aujourd\'hui augmenterait le cortisol et aggraverait ton score demain. Une seance moderee maintient ta progression sans surcharger ton systeme nerveux.';
+
   } else {
-    mL  = '🧘 Repos total';
-    fW  = 'Zone rouge ' + rec + '% : energie digestive = energie de recuperation.';
-    bf  = '*Breakfast* — Toast Banane\nPain · Banane · Beurre amande\n→ 10g P · 58g G · 380 kcal\n💡 Facile a digerer. Potassium reequilibre electrolytes.';
-    lu  = '*Lunch* — Sardines & Avocat\nSardines · Avocat · Salade\n→ 28g P · 18g G · 480 kcal\n💡 Duo EPA/DHA + oleique = anti-inflammatoire vasculaire.';
-    sn  = '*En-cas* — Jus cerises & Amandes\n30ml concentre · Amandes · A 15h\n→ 6g P · 32g G · 240 kcal\n💡 Prepare sommeil 6h a l avance.';
-    di  = '*Diner* — Riz blanc & Saumon\nRiz blanc · Saumon vapeur · Legumes\n→ 38g P · 45g G · 460 kcal\n💡 Riz blanc digere en 1h. Diner avant 19h30.';
-    hy  = '3.0 L';
-    spT = 'Marche douce'; spD = 'Repos'; spP = '5 000 pas';
-    spW = '💡 ' + rec + '% = tout effort retarde recuperation 24-48h. Repos complet.';
+    mL = '🧘 Repos total';
+    fW = 'Ton score de ' + rec + '% est en zone rouge. Ton corps est en mode urgence recuperation. Chaque calorie que tu lui donnes doit aller a la reparation, pas a la digestion. Repas legers et faciles a digerer toute la journee.';
+    bf = meal('Breakfast', 'Toast Banane & Beurre amande',
+      'Pain complet · Banane · Beurre amande · Miel',
+      '10g P · 58g G · 380 kcal',
+      'Quand le corps est epuise, meme digerer demande de l\'energie. Ce petit-dejeuner simple se digere facilement et apporte du potassium pour reequilibrer tes electrolytes sans stresser ton systeme digestif.',
+      'Bol de cereales + lait · Yaourt + fruits · Banane + fruits secs');
+    lu = meal('Lunch', 'Sardines & Avocat',
+      'Sardines · Avocat · Salade verte · Citron',
+      '28g P · 18g G · 480 kcal',
+      'Les sardines et l\'avocat forment le duo le plus riche en omega-3 et en acides gras anti-inflammatoires. Ils agissent directement sur l\'inflammation qui maintient ton score bas.',
+      'Saumon + salade · Maquereau + avocat · Oeufs + legumes');
+    sn = meal('En-cas', 'Jus cerises & Amandes',
+      '30ml concentre cerises · Amandes · A 15h',
+      '6g P · 32g G · 240 kcal',
+      'Pris a 15h, ce snack demarre la preparation de ton sommeil 6-7h a l\'avance. La melatonine naturelle des cerises et le magnesium des amandes preparent ton corps a une nuit profonde et reparatrice.',
+      'Fruits rouges + yaourt · Banane + noix · Dattes + amandes');
+    di = meal('Diner', 'Riz blanc & Saumon vapeur',
+      'Riz blanc · Saumon · Legumes vapeur',
+      '38g P · 45g G · 460 kcal',
+      'Le riz blanc se digere en 1h contre 3h pour le riz complet. Ton corps peut ainsi consacrer toute son energie a la recuperation pendant la nuit. Diner avant 19h30 et rien apres 20h.',
+      'Poulet + riz blanc · Poisson blanc + legumes · Soupe + pain');
+    hy = '3.0 L'; spT = 'Marche douce'; spD = 'Repos complet'; spP = '5 000 pas';
+    spW = 'A ' + rec + '% de recuperation, tout entrainement today retarderait ta remontee de 24 a 48h. Ton seul objectif : recupurer. Une courte marche suffit pour maintenir la circulation sanguine.';
   }
 
-  var msg = '*Iris ✦*\n\nBonjour ' + userName + ' ! 👋\n\n';
-  msg += '━━━━━━━━━━━━━━━\n🌙 *NUIT*\n━━━━━━━━━━━━━━━\n';
-  msg += 'Recup : ' + rec + '% ' + rE + '\n';
-  msg += 'Sommeil : ' + m.sleepPerf + '% (' + m.sleepHours + 'h) ' + sE + '\n';
-  msg += 'HRV : ' + hrv + 'ms ' + hE + ' · FC : ' + m.rhr + 'bpm\n\n';
-  msg += '━━━━━━━━━━━━━━━\n📊 *' + mL + '*\n━━━━━━━━━━━━━━━\n' + fW + '\n\n';
-  msg += '━━━━━━━━━━━━━━━\n🍽️ *REPAS*\n━━━━━━━━━━━━━━━\n';
-  msg += bf + '\n\n' + lu + '\n\n' + sn + '\n\n' + di + '\n\n💧 ' + hy + '\n\n';
-  msg += '━━━━━━━━━━━━━━━\n💪 *SPORT*\n━━━━━━━━━━━━━━━\n';
-  msg += spD + ' · ' + spT + '\n🚶 ' + spP + '\n' + spW + '\n\n';
-  msg += '━━━━━━━━━━━━━━━\n😴 *RECUP*\n━━━━━━━━━━━━━━━\n';
-  msg += 'Sieste : ' + nap + '\nCafeine stop : ' + caff + '\nCoucher : ' + bed + '\nAlcool : ' + alc + '\n\n';
-  msg += '_Iris · Vitae & WHOOP_';
-  return msg;
+  // Build final message — split into 2 parts to stay under 1600 chars each
+  var part1 = '*Iris ✦*\n\nBonjour ' + userName + ' ! 👋\n\n';
+  part1 += '━━━━━━━━━━━━━━━\n🌙 *NUIT*\n━━━━━━━━━━━━━━━\n';
+  part1 += 'Recup : ' + rec + '% ' + rE + '\n';
+  part1 += 'Sommeil : ' + m.sleepPerf + '% (' + m.sleepHours + 'h) ' + sE + '\n';
+  part1 += 'HRV : ' + hrv + 'ms ' + hE + ' · FC : ' + m.rhr + 'bpm\n\n';
+  part1 += '━━━━━━━━━━━━━━━\n📊 *' + mL + '*\n━━━━━━━━━━━━━━━\n' + fW + '\n\n';
+  part1 += '━━━━━━━━━━━━━━━\n🍽️ *REPAS*\n━━━━━━━━━━━━━━━\n';
+  part1 += bf + '\n\n' + lu;
+
+  var part2 = sn + '\n\n' + di + '\n\n💧 ' + hy + '\n\n';
+  part2 += '━━━━━━━━━━━━━━━\n💪 *SPORT*\n━━━━━━━━━━━━━━━\n';
+  part2 += spD + ' · ' + spT + '\n🚶 ' + spP + '\n' + spW + '\n\n';
+  part2 += '━━━━━━━━━━━━━━━\n😴 *RECUP*\n━━━━━━━━━━━━━━━\n';
+  part2 += 'Sieste : ' + nap + '\nCafeine stop : ' + caff + '\nCoucher : ' + bed + '\nAlcool : ' + alc + '\n\n';
+  part2 += '_Iris · Vitae & WHOOP_';
+
+  return { part1, part2 };
 }
 
 module.exports = async (req, res) => {
   var userName = process.env.USER_NAME || 'Arthur';
   try {
     var metrics = await getWhoopMetrics();
-    var message = buildMessage(metrics, userName);
+    var messages = buildMessage(metrics, userName);
     var client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+
+    // Send part 1
+    await client.messages.create({
+      from: process.env.TWILIO_WHATSAPP_FROM,
+      to: process.env.YOUR_WHATSAPP_NUMBER,
+      body: messages.part1,
+    });
+
+    // Small delay then send part 2
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
     var result = await client.messages.create({
       from: process.env.TWILIO_WHATSAPP_FROM,
       to: process.env.YOUR_WHATSAPP_NUMBER,
-      body: message,
+      body: messages.part2,
     });
-    console.log('[Iris] Sent — SID: ' + result.sid);
-    return res.status(200).json({ success: true, recovery: metrics.recoveryScore, sid: result.sid });
+
+    console.log('[Iris] Sent 2 messages — SID: ' + result.sid);
+    return res.status(200).json({ success: true, recovery: metrics.recoveryScore, messages: 2 });
   } catch (err) {
     console.error('[Iris] Error:', err.message);
     return res.status(500).json({ error: err.message });
