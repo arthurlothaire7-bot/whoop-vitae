@@ -27,9 +27,9 @@ async function getWhoopMetrics() {
     return res.json();
   };
 
-  const rec = await whoopGet('/recovery?limit=1');
-  const cycle = await whoopGet('/cycle?limit=1');
-  const sleep = await whoopGet('/sleep?limit=1');
+const rec = await whoopGet('/v1/recovery?limit=1');
+const cycle = await whoopGet('/v1/cycle?limit=1');
+const sleep = await whoopGet('/v1/sleep?limit=1');
 
   const recovery = rec.records && rec.records[0];
   const sl = sleep.records && sleep.records[0];
