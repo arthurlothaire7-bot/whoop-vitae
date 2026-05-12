@@ -93,18 +93,18 @@ function getScientificReco(m, meals) {
   const rec = m.recoveryScore;
 
   const foodReco = rec >= 67
-    ? 'Fibres solubles (avoine) stabilisent ta glycémie sur 3-4h. EPA/DHA (saumon) maintient ton HRV. Fruits frais associés à HRV+ dans les 24h (Reginato et al., p=0.044).'
+    ? 'Fibres solubles (avoine) stabilisent ta glycémie sur 3-4h. EPA/DHA (saumon) maintient ton HRV élevé. Les fruits frais améliorent le HRV dans les 24h suivant la consommation.'
     : rec >= 34
-    ? 'Anthocyanines (myrtilles) + curcumine ciblent les cytokines inflammatoires liées à ton HRV bas. Oméga-3 (saumon, sardines) améliorent le RMSSD en 24-48h (Mozaffarian et al.). Magnésium (amandes) active le GABA — frein naturel du système sympathique.'
-    : 'Repas légers = moins d\'énergie en digestion = plus pour récupérer. Sardines + avocat = duo EPA/DHA + acide oléique le plus concentré. Cerises acidulées à 15h : mélatonine naturelle pour préparer le sommeil de ce soir (17µg/100ml).';
+    ? 'Anthocyanines (myrtilles) + curcumine ciblent les cytokines inflammatoires liées à ton HRV bas. Les oméga-3 (saumon, sardines) améliorent le RMSSD en 24-48h. Le magnésium (amandes) active le GABA — frein naturel du système sympathique.'
+    : 'Repas légers = moins d\'énergie en digestion = plus pour récupérer. Sardines + avocat = duo EPA/DHA + acide oléique le plus concentré. Cerises acidulées à 15h = mélatonine naturelle pour préparer le sommeil de ce soir.';
 
   const sportReco = rec >= 67
-    ? 'Système nerveux pleinement récupéré. Le HIIT crée un stress positif (hormèse) qui améliore le HRV long terme.'
+    ? 'Système nerveux pleinement récupéré. Le HIIT crée un stress positif qui améliore le HRV long terme.'
     : rec >= 34
-    ? 'HRV bas = système sympathique actif. Le HIIT aggraverait demain. Zone 2 = adaptation sans surcharge autonome.'
-    : 'Zone rouge. Chaque effort détourne l\'énergie de la réparation. Repos = seul chemin vers la remontée.';
+    ? 'HRV bas = système sympathique actif. Le HIIT aggraverait demain. La Zone 2 maintient l\'adaptation sans surcharger le système autonome.'
+    : 'Zone rouge. Chaque effort détourne l\'énergie de la réparation. Le repos est le seul chemin vers la remontée.';
 
-  const sleepReco = 'Fibres solubles ce soir → plus de sommeil profond (Wilson et al.). Stop caféine à ' +
+  const sleepReco = 'Les fibres solubles ce soir favorisent le sommeil profond. Stop caféine à ' +
     (rec < 34 ? '13h00' : rec < 50 ? '13h30' : '14h00') + ' pour ne pas fragmenter le REM. Coucher à ' +
     (rec < 34 ? '21h30' : rec < 50 ? '22h00' : rec < 67 ? '22h30' : '23h00') + '.';
 
@@ -141,6 +141,8 @@ function buildMessages(m, userName) {
   const alc  = rec < 34 ? '🚫 Éviter absolument' : rec < 50 ? '⚠️ À éviter ce soir' : '✓ Avec modération';
 
   // ── MESSAGE 1 : Nuit + Mode + Guideline + 4 repas ─────────
+  const fmtAlt = (alt) => alt.split(' · ').map(a => '• ' + a).join('\n');
+
   const msg1 =
 `*Iris ✦*
 
@@ -165,28 +167,26 @@ ${foodIntro}
 🌅 *Breakfast* — ${meals.breakfast.name}
 ${meals.breakfast.ingredients}
 → ${meals.breakfast.macros}
-Alternatives : ${meals.breakfast.alt}
+${fmtAlt(meals.breakfast.alt)}
 
 ☀️ *Lunch* — ${meals.lunch.name}
 ${meals.lunch.ingredients}
 → ${meals.lunch.macros}
-Alternatives : ${meals.lunch.alt}
+${fmtAlt(meals.lunch.alt)}
 
 ⚡ *Snack* — ${meals.snack.name}
 ${meals.snack.ingredients}
 → ${meals.snack.macros}
-Alternatives : ${meals.snack.alt}
+${fmtAlt(meals.snack.alt)}
 
 🌙 *Dîner* — ${meals.dinner.name}
 ${meals.dinner.ingredients}
 → ${meals.dinner.macros}
-Alternatives : ${meals.dinner.alt}`;
+${fmtAlt(meals.dinner.alt)}`;
 
   // ── MESSAGE 2 : Sport + Récup + Pourquoi ──────────────────
   const msg2 =
 `*Iris ✦* — Sport & Récupération 💪
-
-${guideline}
 
 ━━━━━━━━━━━━━━━
 💪 *SPORT*
