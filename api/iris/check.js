@@ -1,5 +1,7 @@
 const twilio = require('twilio');
+const { getDayMeals } = require('./meals');
 
+// ── WHOOP ─────────────────────────────────────────────────
 async function getWhoopMetrics() {
   const base = 'https://api.prod.whoop.com/developer/v2';
   let token = process.env.WHOOP_ACCESS_TOKEN;
@@ -44,149 +46,215 @@ async function getWhoopMetrics() {
   };
 }
 
-function meal(label, name, ingredients, macros, why, alternatives) {
-  return '*' + label + '* — ' + name + '\n' + ingredients + '\n→ ' + macros + '\nPourquoi : ' + why + '\nAlternatives : ' + alternatives;
+// ── GUIDELINE ─────────────────────────────────────────────
+function getGuideline(m) {
+  const rec = m.recoveryScore;
+  const sl  = parseFloat(m.sleepHours) || 0;
+  const str = parseFloat(m.strain);
+
+  if (rec >= 67 && m.sleepPerf >= 75)
+    return 'Aujourd\'hui, basé sur ta data, je te recommande de *pousser fort* — système nerveux pleinement récupéré, c\'est le bon jour pour performer.';
+  if (rec >= 50 && str > 12)
+    return 'Aujourd\'hui, basé sur ta data, je te recommande de *laisser ton corps souffler* — charge d\'hier élevée, priorise la mobilité et les anti-inflammatoires.';
+  if (rec >= 50)
+    return 'Aujourd\'hui, basé sur ta data, je te recommande de *t\'entraîner modérément* — récupération en cours, évite le HIIT.';
+  if (rec >= 34)
+    return 'Aujourd\'hui, basé sur ta data, je te recommande de *réduire l\'effort* — marche et anti-inflammatoires uniquement.';
+  if (sl < 5.5)
+    return 'Aujourd\'hui, basé sur ta data, je te recommande de *tout miser sur le sommeil de ce soir* — nuit trop courte + zone rouge.';
+  return 'Aujourd\'hui, basé sur ta data, je te recommande le *repos complet* — zone rouge, tout entraînement retarde la récupération de 24-48h.';
 }
 
-function buildMessage(m, userName) {
-  var rec  = m.recoveryScore;
-  var hrv  = m.hrv;
-  var str  = parseFloat(m.strain);
-  var mode = rec >= 67 ? 'perf' : rec >= 34 ? 'rec' : 'repos';
-  var rE   = rec >= 67 ? '🟢' : rec >= 34 ? '🟡' : '🔴';
-  var sE   = m.sleepPerf >= 80 ? '🟢' : m.sleepPerf >= 60 ? '🟡' : '🔴';
-  var hE   = hrv >= 70 ? '🟢' : hrv >= 50 ? '🟡' : '🔴';
-  var bed  = rec < 34 ? '21h30' : rec < 50 ? '22h00' : rec < 67 ? '22h30' : '23h00';
-  var caff = rec < 34 ? '13h00' : rec < 50 ? '13h30' : '14h00';
-  var alc  = rec < 50 ? '🚫 Eviter' : '⚠️ Moderation';
-  var nap  = (rec < 50 || parseFloat(m.sleepHours) < 6.5) ? 'Oui 20min (13h-15h)' : 'Non';
+// ── SPORT ─────────────────────────────────────────────────
+function getSport(m) {
+  const rec = m.recoveryScore;
+  const str = parseFloat(m.strain);
 
-  var mL, fW, bf, lu, sn, di, hy, spT, spD, spP, spW;
-
-  if (mode === 'perf') {
-    mL = '⚡ Performance';
-    fW = 'Ton score de ' + rec + '% indique que ton corps est pleinement recupere. C\'est le bon jour pour pousser fort. Priorite aux glucides et aux proteines pour alimenter l\'effort.';
-    bf = meal('Breakfast', 'Power Oat Bowl',
-      'Avoine · Whey · Banane · Miel',
-      '38g P · 82g G · 558 kcal',
-      'Ton corps est pret a encaisser un effort intense. L\'avoine te donne de l\'energie stable sur 3-4h sans crash. La whey active la construction musculaire des le reveil.',
-      'Granola + yaourt grec · Pain complet + oeufs · Smoothie banane + amandes');
-    lu = meal('Lunch', 'Bowl Poulet & Riz complet',
-      'Poulet · Riz brun · Brocolis · Huile olive',
-      '45g P · 68g G · 580 kcal',
-      'Apres l\'effort, tes muscles ont besoin de proteines pour se reconstruire et de glucides pour recharger. Le riz brun evite le pic de glycemie qui provoquerait une fatigue apres-midi.',
-      'Saumon + riz · Thon + pates · Oeufs + patate douce');
-    sn = meal('En-cas', 'Shake pre-seance',
-      'Banane · Whey · Dattes · Lait',
-      '28g P · 48g G · 340 kcal',
-      'A prendre 30 min avant ton entrainement. Le sucre rapide de la banane te donne de l\'energie immediatement disponible. La whey prepare tes muscles avant meme que tu commences.',
-      'Banane + beurre amande · Pain + miel · Dattes + noix de cajou');
-    di = meal('Diner', 'Steak & Patate douce',
-      'Steak grass-fed · Patate douce · Asperges',
-      '42g P · 52g G · 538 kcal',
-      'Le soir apres un gros effort, ton corps a besoin de proteines de qualite pour reparer les fibres musculaires. La patate douce recharge les reserves d\'energie pour demain.',
-      'Poulet + riz blanc · Saumon + quinoa · Oeufs + legumes rotis');
-    hy = '3.2 L'; spT = 'HIIT ou Muscu lourde'; spD = '1h'; spP = '12 000 pas';
-    spW = 'HRV ' + hrv + 'ms + score ' + rec + '% = ton systeme nerveux est pleinement recupere. C\'est exactement le signal pour pousser fort. Ces jours a ' + rec + '%+ sont rares, ne les gache pas.';
-
-  } else if (mode === 'rec') {
-    mL = '🔄 Recovery';
-    fW = 'Ton HRV de ' + hrv + 'ms indique que ton corps est encore en train de recuperer. L\'inflammation est active. Chaque repas aujourd\'hui doit aider ton corps a reduire cette inflammation et restaurer ton systeme nerveux.';
-    bf = meal('Breakfast', 'Smoothie Myrtilles & Curcuma',
-      'Myrtilles · Curcuma · Yaourt grec · Poivre noir',
-      '22g P · 52g G · 390 kcal',
-      'Les myrtilles et le curcuma sont parmi les anti-inflammatoires les plus puissants. Ensemble ils reduisent directement les marqueurs d\'inflammation qui font baisser ton HRV. Le poivre noir est obligatoire : il multiplie l\'effet du curcuma par 20.',
-      'Porridge + fruits rouges · Yaourt + granola · Oeufs + epinards');
-    lu = meal('Lunch', 'Bowl Saumon & Quinoa',
-      'Saumon sauvage · Quinoa · Concombre · Citron',
-      '42g P · 45g G · 510 kcal',
-      'Le saumon sauvage est riche en omega-3, des acides gras qui agissent directement sur l\'inflammation responsable de ton HRV bas. C\'est le repas le plus important de ta journee. Effet visible en 24-48h.',
-      'Sardines + riz · Maquereau + patate douce · Thon + salade');
-    sn = meal('En-cas', 'Amandes & Cerises acidulees',
-      'Amandes · Cerises sechees · Chocolat 85%',
-      '8g P · 28g G · 280 kcal',
-      'Les amandes apportent du magnesium qui aide ton systeme nerveux a se calmer. Les cerises acidulees contiennent des precurseurs de melatonine pour preparer un bon sommeil ce soir. A prendre vers 16h.',
-      'Noix + fruits secs · Yaourt + miel · Banane + beurre amande');
-    di = meal('Diner', 'Bouillon Poulet Curcuma',
-      'Poulet · Bouillon d\'os · Gingembre · Kale',
-      '35g P · 22g G · 340 kcal',
-      'Un repas leger le soir permet a ton corps de consacrer toute son energie a la recuperation pendant la nuit plutot qu\'a la digestion. Le gingembre et le curcuma continuent leur action anti-inflammatoire pendant ton sommeil.',
-      'Poisson blanc vapeur · Soupe legumes + poulet · Omelette + salade');
-    hy = '2.6 L'; spT = str > 12 ? 'Yoga ou Mobilite' : 'Muscu legere ou Zone 2'; spD = '45 min'; spP = '10 000 pas';
-    spW = 'Avec un HRV de ' + hrv + 'ms, un entrainement intense aujourd\'hui augmenterait le cortisol et aggraverait ton score demain. Une seance moderee maintient ta progression sans surcharger ton systeme nerveux.';
-
-  } else {
-    mL = '🧘 Repos total';
-    fW = 'Ton score de ' + rec + '% est en zone rouge. Ton corps est en mode urgence recuperation. Chaque calorie que tu lui donnes doit aller a la reparation, pas a la digestion. Repas legers et faciles a digerer toute la journee.';
-    bf = meal('Breakfast', 'Toast Banane & Beurre amande',
-      'Pain complet · Banane · Beurre amande · Miel',
-      '10g P · 58g G · 380 kcal',
-      'Quand le corps est epuise, meme digerer demande de l\'energie. Ce petit-dejeuner simple se digere facilement et apporte du potassium pour reequilibrer tes electrolytes sans stresser ton systeme digestif.',
-      'Bol de cereales + lait · Yaourt + fruits · Banane + fruits secs');
-    lu = meal('Lunch', 'Sardines & Avocat',
-      'Sardines · Avocat · Salade verte · Citron',
-      '28g P · 18g G · 480 kcal',
-      'Les sardines et l\'avocat forment le duo le plus riche en omega-3 et en acides gras anti-inflammatoires. Ils agissent directement sur l\'inflammation qui maintient ton score bas.',
-      'Saumon + salade · Maquereau + avocat · Oeufs + legumes');
-    sn = meal('En-cas', 'Jus cerises & Amandes',
-      '30ml concentre cerises · Amandes · A 15h',
-      '6g P · 32g G · 240 kcal',
-      'Pris a 15h, ce snack demarre la preparation de ton sommeil 6-7h a l\'avance. La melatonine naturelle des cerises et le magnesium des amandes preparent ton corps a une nuit profonde et reparatrice.',
-      'Fruits rouges + yaourt · Banane + noix · Dattes + amandes');
-    di = meal('Diner', 'Riz blanc & Saumon vapeur',
-      'Riz blanc · Saumon · Legumes vapeur',
-      '38g P · 45g G · 460 kcal',
-      'Le riz blanc se digere en 1h contre 3h pour le riz complet. Ton corps peut ainsi consacrer toute son energie a la recuperation pendant la nuit. Diner avant 19h30 et rien apres 20h.',
-      'Poulet + riz blanc · Poisson blanc + legumes · Soupe + pain');
-    hy = '3.0 L'; spT = 'Marche douce'; spD = 'Repos complet'; spP = '5 000 pas';
-    spW = 'A ' + rec + '% de recuperation, tout entrainement today retarderait ta remontee de 24 a 48h. Ton seul objectif : recupurer. Une courte marche suffit pour maintenir la circulation sanguine.';
-  }
-
-  // Build final message — split into 2 parts to stay under 1600 chars each
-  var part1 = '*Iris ✦*\n\nBonjour ' + userName + ' ! 👋\n\n';
-  part1 += '━━━━━━━━━━━━━━━\n🌙 *NUIT*\n━━━━━━━━━━━━━━━\n';
-  part1 += 'Recup : ' + rec + '% ' + rE + '\n';
-  part1 += 'Sommeil : ' + m.sleepPerf + '% (' + m.sleepHours + 'h) ' + sE + '\n';
-  part1 += 'HRV : ' + hrv + 'ms ' + hE + ' · FC : ' + m.rhr + 'bpm\n\n';
-  part1 += '━━━━━━━━━━━━━━━\n📊 *' + mL + '*\n━━━━━━━━━━━━━━━\n' + fW + '\n\n';
-  part1 += '━━━━━━━━━━━━━━━\n🍽️ *REPAS*\n━━━━━━━━━━━━━━━\n';
-  part1 += bf + '\n\n' + lu;
-
-  var part2 = sn + '\n\n' + di + '\n\n💧 ' + hy + '\n\n';
-  part2 += '━━━━━━━━━━━━━━━\n💪 *SPORT*\n━━━━━━━━━━━━━━━\n';
-  part2 += spD + ' · ' + spT + '\n🚶 ' + spP + '\n' + spW + '\n\n';
-  part2 += '━━━━━━━━━━━━━━━\n😴 *RECUP*\n━━━━━━━━━━━━━━━\n';
-  part2 += 'Sieste : ' + nap + '\nCafeine stop : ' + caff + '\nCoucher : ' + bed + '\nAlcool : ' + alc + '\n\n';
-  part2 += '_Iris · Vitae & WHOOP_';
-
-  return { part1, part2 };
+  if (rec >= 67) return {
+    duree: '1h', type: 'HIIT ou Musculation lourde', intensite: '75-85% FC max', pas: '12 000 pas',
+    why: 'HRV ' + m.hrv + 'ms + score ' + rec + '% = signal vert. Le HIIT génère un stress positif qui améliore ton HRV long terme. Ne rate pas cette fenêtre.'
+  };
+  if (rec >= 50) return {
+    duree: '45 min', type: str > 12 ? 'Yoga ou Mobilité' : 'Muscu légère ou Zone 2', intensite: '60-70% FC max', pas: '10 000 pas',
+    why: 'Le HIIT augmenterait le cortisol et aggraverait ton HRV demain. La Zone 2 maintient l\'adaptation sans surcharger le système nerveux.'
+  };
+  if (rec >= 34) return {
+    duree: '30 min max', type: 'Marche ou Yoga doux', intensite: '50-60% FC max', pas: '7 000 pas',
+    why: 'La marche active la circulation lymphatique sans stress. Tout effort structuré retarderait ta remontée.'
+  };
+  return {
+    duree: 'Repos complet', type: 'Marche douce si besoin', intensite: '—', pas: '5 000 pas',
+    why: 'Stop. À ' + rec + '%, tout entraînement retarde la récupération de 24-48h.'
+  };
 }
 
+// ── RECO SCIENTIFIQUE ─────────────────────────────────────
+function getScientificReco(m, meals) {
+  const rec = m.recoveryScore;
+
+  const foodReco = rec >= 67
+    ? 'Fibres solubles (avoine) stabilisent ta glycémie sur 3-4h. EPA/DHA (saumon) maintient ton HRV. Fruits frais associés à HRV+ dans les 24h (Reginato et al., p=0.044).'
+    : rec >= 34
+    ? 'Anthocyanines (myrtilles) + curcumine ciblent les cytokines inflammatoires liées à ton HRV bas. Oméga-3 (saumon, sardines) améliorent le RMSSD en 24-48h (Mozaffarian et al.). Magnésium (amandes) active le GABA — frein naturel du système sympathique.'
+    : 'Repas légers = moins d\'énergie en digestion = plus pour récupérer. Sardines + avocat = duo EPA/DHA + acide oléique le plus concentré. Cerises acidulées à 15h : mélatonine naturelle pour préparer le sommeil de ce soir (17µg/100ml).';
+
+  const sportReco = rec >= 67
+    ? 'Système nerveux pleinement récupéré. Le HIIT crée un stress positif (hormèse) qui améliore le HRV long terme.'
+    : rec >= 34
+    ? 'HRV bas = système sympathique actif. Le HIIT aggraverait demain. Zone 2 = adaptation sans surcharge autonome.'
+    : 'Zone rouge. Chaque effort détourne l\'énergie de la réparation. Repos = seul chemin vers la remontée.';
+
+  const sleepReco = 'Fibres solubles ce soir → plus de sommeil profond (Wilson et al.). Stop caféine à ' +
+    (rec < 34 ? '13h00' : rec < 50 ? '13h30' : '14h00') + ' pour ne pas fragmenter le REM. Coucher à ' +
+    (rec < 34 ? '21h30' : rec < 50 ? '22h00' : rec < 67 ? '22h30' : '23h00') + '.';
+
+  return { foodReco, sportReco, sleepReco };
+}
+
+// ── BUILD MESSAGES ─────────────────────────────────────────
+function buildMessages(m, userName) {
+  const rec  = m.recoveryScore;
+  const rE   = rec >= 67 ? '🟢' : rec >= 34 ? '🟡' : '🔴';
+  const sE   = m.sleepPerf >= 80 ? '🟢' : m.sleepPerf >= 60 ? '🟡' : '🔴';
+  const hE   = m.hrv >= 70 ? '🟢' : m.hrv >= 50 ? '🟡' : '🔴';
+
+  const guideline = getGuideline(m);
+  const meals     = getDayMeals(rec);
+  const sport     = getSport(m);
+  const reco      = getScientificReco(m, meals);
+
+  const modeLabel = meals.mode === 'performance' ? '⚡ Performance'
+                  : meals.mode === 'recovery'    ? '🔄 Recovery'
+                  :                               '🧘 Repos total';
+
+  const foodIntro = meals.mode === 'performance'
+    ? 'Privilégie glucides complexes + protéines. Score ' + rec + '% = corps prêt pour effort intense.'
+    : meals.mode === 'recovery'
+    ? 'Privilégie anti-inflammatoires. HRV ' + m.hrv + 'ms = inflammation active — chaque repas doit réduire le stress nerveux.'
+    : 'Privilégie aliments faciles à digérer. Zone rouge ' + rec + '% — énergie digestive = énergie de récupération.';
+
+  const sieste = (rec < 50 || parseFloat(m.sleepHours) < 6.5)
+    ? 'Oui — 20 min (13h-15h)'
+    : 'Non nécessaire';
+  const bed  = rec < 34 ? '21h30' : rec < 50 ? '22h00' : rec < 67 ? '22h30' : '23h00';
+  const caff = rec < 34 ? '13h00' : rec < 50 ? '13h30' : '14h00';
+  const alc  = rec < 34 ? '🚫 Éviter absolument' : rec < 50 ? '⚠️ À éviter ce soir' : '✓ Avec modération';
+
+  // ── MESSAGE 1 : Nuit + Mode + Guideline + 4 repas ─────────
+  const msg1 =
+`*Iris ✦*
+
+Bonjour ${userName} ! 👋
+
+━━━━━━━━━━━━━━━
+🌙 *NUIT*
+━━━━━━━━━━━━━━━
+Récup : ${rec}% ${rE} · Sommeil : ${m.sleepPerf}% (${m.sleepHours}h) ${sE}
+HRV : ${m.hrv}ms ${hE} · FC repos : ${m.rhr}bpm
+
+━━━━━━━━━━━━━━━
+📊 *${modeLabel}*
+━━━━━━━━━━━━━━━
+${guideline}
+
+━━━━━━━━━━━━━━━
+🍽️ *ALIMENTATION*
+━━━━━━━━━━━━━━━
+${foodIntro}
+
+🌅 *Breakfast* — ${meals.breakfast.name}
+${meals.breakfast.ingredients}
+→ ${meals.breakfast.macros}
+Alternatives : ${meals.breakfast.alt}
+
+☀️ *Lunch* — ${meals.lunch.name}
+${meals.lunch.ingredients}
+→ ${meals.lunch.macros}
+Alternatives : ${meals.lunch.alt}
+
+⚡ *Snack* — ${meals.snack.name}
+${meals.snack.ingredients}
+→ ${meals.snack.macros}
+Alternatives : ${meals.snack.alt}
+
+🌙 *Dîner* — ${meals.dinner.name}
+${meals.dinner.ingredients}
+→ ${meals.dinner.macros}
+Alternatives : ${meals.dinner.alt}`;
+
+  // ── MESSAGE 2 : Sport + Récup + Pourquoi ──────────────────
+  const msg2 =
+`*Iris ✦* — Sport & Récupération 💪
+
+${guideline}
+
+━━━━━━━━━━━━━━━
+💪 *SPORT*
+━━━━━━━━━━━━━━━
+⏱ Durée : ${sport.duree}
+🏋️ Type : ${sport.type}
+❤️ Intensité : ${sport.intensite}
+🚶 Pas cible : ${sport.pas}
+
+━━━━━━━━━━━━━━━
+😴 *RÉCUPÉRATION*
+━━━━━━━━━━━━━━━
+Sieste : ${sieste}
+☕ Caféine stop : ${caff}
+🌙 Coucher : ${bed}
+🍷 Alcool : ${alc}
+
+━━━━━━━━━━━━━━━
+💡 *POURQUOI CES CHOIX ?*
+━━━━━━━━━━━━━━━
+🍽️ Food : ${reco.foodReco}
+
+💪 Sport : ${reco.sportReco}
+
+🌙 Sommeil : ${reco.sleepReco}
+
+━━━━━━━━━━━━━━━
+_Iris · Powered by Vitae & WHOOP_`;
+
+  return { msg1, msg2 };
+}
+
+// ── HANDLER ───────────────────────────────────────────────
 module.exports = async (req, res) => {
-  var userName = process.env.USER_NAME || 'Arthur';
-  try {
-    var metrics = await getWhoopMetrics();
-    var messages = buildMessage(metrics, userName);
-    var client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+  const userName = process.env.USER_NAME || 'Arthur';
 
-    // Send part 1
+  try {
+    const metrics        = await getWhoopMetrics();
+    const { msg1, msg2 } = buildMessages(metrics, userName);
+
+    const client = twilio(
+      process.env.TWILIO_ACCOUNT_SID,
+      process.env.TWILIO_AUTH_TOKEN
+    );
+
     await client.messages.create({
       from: process.env.TWILIO_WHATSAPP_FROM,
-      to: process.env.YOUR_WHATSAPP_NUMBER,
-      body: messages.part1,
+      to:   process.env.YOUR_WHATSAPP_NUMBER,
+      body: msg1,
     });
 
-    // Small delay then send part 2
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(r => setTimeout(r, 1500));
 
-    var result = await client.messages.create({
+    const result = await client.messages.create({
       from: process.env.TWILIO_WHATSAPP_FROM,
-      to: process.env.YOUR_WHATSAPP_NUMBER,
-      body: messages.part2,
+      to:   process.env.YOUR_WHATSAPP_NUMBER,
+      body: msg2,
     });
 
-    console.log('[Iris] Sent 2 messages — SID: ' + result.sid);
-    return res.status(200).json({ success: true, recovery: metrics.recoveryScore, messages: 2 });
+    console.log('[Iris] ✓ 2 messages sent — SID: ' + result.sid);
+    return res.status(200).json({
+      success:  true,
+      recovery: metrics.recoveryScore,
+      mode:     metrics.recoveryScore >= 67 ? 'performance' : metrics.recoveryScore >= 34 ? 'recovery' : 'repos',
+      messages: 2,
+      sid:      result.sid,
+    });
+
   } catch (err) {
     console.error('[Iris] Error:', err.message);
     return res.status(500).json({ error: err.message });
