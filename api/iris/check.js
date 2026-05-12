@@ -46,7 +46,112 @@ async function getWhoopMetrics() {
   };
 }
 
-// ── DÉFIS QUOTIDIENS ──────────────────────────────────────
+// ── VOCAL SCRIPT ──────────────────────────────────────────
+function buildVocalScript(m, userName, meals, defi) {
+  const rec = m.recoveryScore;
+
+  // Intro récup
+  let recapNuit;
+  if (rec >= 67) {
+    recapNuit = `Super récupération, ${rec}%, HRV ${m.hrv} millisecondes, tout est au vert.`;
+  } else if (rec >= 34) {
+    recapNuit = `Récupération modérée, ${rec}%, HRV ${m.hrv} millisecondes. Ton corps est en train de récupérer.`;
+  } else {
+    recapNuit = `Récupération faible, ${rec}%, HRV ${m.hrv} millisecondes. Ton corps a besoin de repos aujourd'hui.`;
+  }
+
+  // Sport
+  let sportText;
+  if (rec >= 67) {
+    sportText = `Pour le sport, aujourd'hui c'est HIIT ou musculation lourde, une heure, soixante-quinze à quatre-vingt-cinq pourcent de ta fréquence cardiaque max.`;
+  } else if (rec >= 50) {
+    sportText = `Pour le sport, aujourd'hui c'est musculation légère ou cardio Zone 2, quarante-cinq minutes, soixante à soixante-dix pourcent de ta fréquence cardiaque max.`;
+  } else if (rec >= 34) {
+    sportText = `Pour le sport, aujourd'hui c'est marche ou yoga doux, trente minutes maximum. Prends soin de ton corps.`;
+  } else {
+    sportText = `Pour le sport, repos complet aujourd'hui. Ton corps a besoin de toute son énergie pour récupérer.`;
+  }
+
+  // Défi — version orale (enlève les emojis)
+  const defiOral = defi
+    .replace(/🔥|🌿|🧘/g, '')
+    .replace('Défi :', 'Petit défi du jour :')
+    .trim();
+
+  return `Hello ${userName}.
+
+${recapNuit}
+
+Basé sur ta data, tu peux prendre ${meals.breakfast.name} au petit déjeuner pour te donner de l'énergie, ${meals.lunch.name} au déjeuner, et ${meals.dinner.name} au dîner.
+
+${sportText}
+
+${defiOral}
+
+Enjoy the journey, you're the best.`;
+}
+
+// ── OPENAI TTS ────────────────────────────────────────────
+async function generateAudio(text) {
+  const response = await fetch('https://api.openai.com/v1/audio/speech', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + process.env.OPENAI_API_KEY,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'tts-1',
+      input: text,
+      voice: 'nova',      // voix douce et naturelle
+      speed: 0.95,        // légèrement plus lent pour plus de clarté
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error('OpenAI TTS error: ' + await response.text());
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
+
+// ── CLOUDINARY UPLOAD ─────────────────────────────────────
+async function uploadToCloudinary(audioBuffer) {
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+  const apiKey    = process.env.CLOUDINARY_API_KEY;
+  const apiSecret = process.env.CLOUDINARY_API_SECRET;
+
+  const timestamp = Math.round(Date.now() / 1000);
+  const publicId  = 'iris-recap-' + timestamp;
+
+  // Signature Cloudinary
+  const crypto = require('crypto');
+  const sigString = `public_id=${publicId}&timestamp=${timestamp}${apiSecret}`;
+  const signature = crypto.createHash('sha1').update(sigString).digest('hex');
+
+  // FormData avec le buffer audio
+  const FormData = require('form-data');
+  const form = new FormData();
+  form.append('file', audioBuffer, { filename: 'iris.mp3', contentType: 'audio/mpeg' });
+  form.append('api_key', apiKey);
+  form.append('timestamp', timestamp.toString());
+  form.append('public_id', publicId);
+  form.append('signature', signature);
+  form.append('resource_type', 'video'); // Cloudinary utilise "video" pour l'audio
+
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/video/upload`, {
+    method: 'POST',
+    body: form,
+    headers: form.getHeaders(),
+  });
+
+  if (!res.ok) throw new Error('Cloudinary upload error: ' + await res.text());
+
+  const data = await res.json();
+  return data.secure_url;
+}
+
+// ── DÉFIS ─────────────────────────────────────────────────
 const DEFIS_PERFORMANCE = [
   '🔥 Défi : 50 pompes — en 1 set ou fractionné comme tu veux',
   '🔥 Défi : 50 abdos — crunchs, relevés de jambes ou russian twist',
@@ -57,11 +162,11 @@ const DEFIS_PERFORMANCE = [
   '🔥 Défi : 30 tractions — en autant de sets que nécessaire',
   '🔥 Défi : 50 fentes — 25 par jambe, alternées',
   '🔥 Défi : 100 mountain climbers — rythme explosif',
-  '🔥 Défi : 3 séries de 20 pompes + 20 squats + 20 abdos — sans pause',
-  '🔥 Défi : Gainage latéral 60s chaque côté + gainage frontal 90s',
+  '🔥 Défi : 3 séries pompes + squats + abdos — sans pause',
+  '🔥 Défi : Gainage latéral 60s chaque côté + frontal 90s',
   '🔥 Défi : 50 jump squats — explosivité maximale',
   '🔥 Défi : 10 min yoga — sun salutation x10',
-  '🔥 Défi : 5 min cohérence cardiaque — inspire 5s, expire 5s, sans t\'arrêter',
+  '🔥 Défi : 5 min cohérence cardiaque — inspire 5s, expire 5s',
 ];
 
 const DEFIS_RECOVERY = [
@@ -73,35 +178,34 @@ const DEFIS_RECOVERY = [
   '🌿 Défi : 10 min étirements — ischios, quadriceps, pectoraux',
   '🌿 Défi : 50 pompes à rythme lent — qualité sur quantité',
   '🌿 Défi : 5 min cohérence cardiaque — réduit le cortisol de 30%',
-  '🌿 Défi : 10 min yoga — yin yoga, postures tenues 2 min',
-  '🌿 Défi : 50 fentes — lentes et contrôlées, 25 par jambe',
-  '🌿 Défi : 10 min méditation body scan — scanne chaque partie du corps',
-  '🌿 Défi : 3x 40 abdos — crunchs + obliques + relevés de jambes',
+  '🌿 Défi : 10 min yoga yin — postures tenues 2 min',
+  '🌿 Défi : 50 fentes lentes et contrôlées — 25 par jambe',
+  '🌿 Défi : 10 min méditation body scan',
+  '🌿 Défi : 3x40 abdos — crunchs + obliques + relevés de jambes',
   '🌿 Défi : 5 min respiration box — inspire 4s, retiens 4s, expire 4s, retiens 4s',
-  '🌿 Défi : 10 min étirements dynamiques — rotations épaules, hanches, chevilles',
+  '🌿 Défi : 10 min étirements dynamiques — épaules, hanches, chevilles',
 ];
 
 const DEFIS_REPOS = [
-  '🧘 Défi : 10 min méditation — ferme les yeux, laisse les pensées passer',
+  '🧘 Défi : 10 min méditation — laisse les pensées passer',
   '🧘 Défi : 5 min cohérence cardiaque — levier direct sur ton HRV',
   '🧘 Défi : 10 min yoga nidra — allongé, scan corporel complet',
   '🧘 Défi : 5 min respiration 4-7-8 — inspire 4s, retiens 7s, expire 8s',
-  '🧘 Défi : 10 min étirements doux — sans forcer, écoute ton corps',
-  '🧘 Défi : 5 min méditation pleine conscience — focus sur les sons autour',
-  '🧘 Défi : Respiration nasale alternée — 5 min, calme le système nerveux',
-  '🧘 Défi : 10 min yoga restauratif — postures passives avec support',
+  '🧘 Défi : 10 min étirements doux — sans forcer',
+  '🧘 Défi : 5 min méditation pleine conscience — focus sur les sons',
+  '🧘 Défi : Respiration nasale alternée — 5 min',
+  '🧘 Défi : 10 min yoga restauratif — postures passives',
   '🧘 Défi : 5 min cohérence cardiaque + visualisation positive',
-  '🧘 Défi : 10 min méditation compassion — pense à ce que tu es reconnaissant',
-  '🧘 Défi : 5 min respiration profonde allongé — expire 2x plus long que l\'inspire',
-  '🧘 Défi : 10 min étirements — focus cervicales, trapèzes, lombaires',
+  '🧘 Défi : 10 min méditation compassion',
+  '🧘 Défi : 5 min respiration profonde allongé',
+  '🧘 Défi : 10 min étirements — cervicales, trapèzes, lombaires',
   '🧘 Défi : 5 min cohérence cardiaque avant le déjeuner',
-  '🧘 Défi : 10 min marche consciente — sens chaque pas, sans téléphone',
+  '🧘 Défi : 10 min marche consciente — sans téléphone',
 ];
 
 function getDefi(recoveryScore) {
   const today = new Date();
   const dayOfYear = Math.floor((today - new Date(today.getFullYear(), 0, 0)) / 86400000);
-
   if (recoveryScore >= 67) return DEFIS_PERFORMANCE[dayOfYear % DEFIS_PERFORMANCE.length];
   if (recoveryScore >= 34) return DEFIS_RECOVERY[dayOfYear % DEFIS_RECOVERY.length];
   return DEFIS_REPOS[dayOfYear % DEFIS_REPOS.length];
@@ -111,68 +215,47 @@ function getDefi(recoveryScore) {
 function getGuideline(m) {
   const rec = m.recoveryScore;
   const str = parseFloat(m.strain);
-  const sl  = parseFloat(m.sleepHours) || 0;
-
   if (rec >= 67 && m.sleepPerf >= 75)
     return 'Aujourd\'hui, basé sur ta data, je te recommande de *pousser fort* — système nerveux pleinement récupéré, c\'est le bon jour pour performer.';
   if (rec >= 50 && str > 12)
-    return 'Aujourd\'hui, basé sur ta data, je te recommande de *laisser ton corps souffler* — charge d\'hier élevée, priorise la mobilité et les anti-inflammatoires.';
+    return 'Aujourd\'hui, basé sur ta data, je te recommande de *laisser ton corps souffler* — charge d\'hier élevée, priorise la mobilité.';
   if (rec >= 50)
     return 'Aujourd\'hui, basé sur ta data, je te recommande de *t\'entraîner modérément* — récupération en cours, évite le HIIT.';
   if (rec >= 34)
     return 'Aujourd\'hui, basé sur ta data, je te recommande de *réduire l\'effort* — marche et anti-inflammatoires uniquement.';
-  if (sl < 5.5)
-    return 'Aujourd\'hui, basé sur ta data, je te recommande de *tout miser sur le sommeil de ce soir* — nuit trop courte + zone rouge.';
-  return 'Aujourd\'hui, basé sur ta data, je te recommande le *repos complet* — zone rouge, tout entraînement retarde ta récupération de 24-48h.';
+  return 'Aujourd\'hui, basé sur ta data, je te recommande le *repos complet* — zone rouge, tout entraînement retarde ta récupération.';
 }
 
 // ── SPORT ─────────────────────────────────────────────────
 function getSport(m) {
   const rec = m.recoveryScore;
   const str = parseFloat(m.strain);
-
-  if (rec >= 67) return {
-    duree: '1h', type: 'HIIT ou Musculation lourde', intensite: '75-85% FC max', pas: '12 000 pas',
-    why: 'HRV ' + m.hrv + 'ms + score ' + rec + '% = signal vert. Ne rate pas cette fenêtre.'
-  };
-  if (rec >= 50) return {
-    duree: '45 min', type: str > 12 ? 'Yoga ou Mobilité' : 'Muscu légère ou Zone 2', intensite: '60-70% FC max', pas: '10 000 pas',
-    why: 'Le HIIT augmenterait le cortisol et aggraverait ton HRV demain. La Zone 2 maintient l\'adaptation sans surcharger le système nerveux.'
-  };
-  if (rec >= 34) return {
-    duree: '30 min max', type: 'Marche ou Yoga doux', intensite: '50-60% FC max', pas: '7 000 pas',
-    why: 'La marche active la circulation lymphatique sans stress. Tout effort structuré retarderait ta remontée.'
-  };
-  return {
-    duree: 'Repos complet', type: 'Marche douce si besoin', intensite: '—', pas: '5 000 pas',
-    why: 'À ' + rec + '%, tout entraînement retarde la récupération de 24-48h.'
-  };
+  if (rec >= 67) return { duree: '1h', type: 'HIIT ou Musculation lourde', intensite: '75-85% FC max', pas: '12 000 pas', why: 'HRV ' + m.hrv + 'ms + score ' + rec + '% = signal vert. Ne rate pas cette fenêtre.' };
+  if (rec >= 50) return { duree: '45 min', type: str > 12 ? 'Yoga ou Mobilité' : 'Muscu légère ou Zone 2', intensite: '60-70% FC max', pas: '10 000 pas', why: 'Le HIIT augmenterait le cortisol et aggraverait ton HRV demain.' };
+  if (rec >= 34) return { duree: '30 min max', type: 'Marche ou Yoga doux', intensite: '50-60% FC max', pas: '7 000 pas', why: 'La marche active la circulation lymphatique sans stress.' };
+  return { duree: 'Repos complet', type: 'Marche douce si besoin', intensite: '—', pas: '5 000 pas', why: 'À ' + rec + '%, tout entraînement retarde la récupération de 24-48h.' };
 }
 
 // ── RECO ──────────────────────────────────────────────────
-function getScientificReco(m) {
+function getReco(m) {
   const rec = m.recoveryScore;
-
   const foodReco = rec >= 67
-    ? 'Fibres solubles (avoine) stabilisent ta glycémie sur 3-4h. Les oméga-3 (saumon) maintiennent ton HRV élevé. Les fruits frais améliorent le HRV dans les 24h suivant la consommation.'
+    ? 'Fibres solubles (avoine) stabilisent ta glycémie sur 3-4h. Les oméga-3 (saumon) maintiennent ton HRV élevé. Les fruits frais améliorent le HRV dans les 24h.'
     : rec >= 34
-    ? 'Les anthocyanines (myrtilles) + curcumine ciblent les cytokines inflammatoires liées à ton HRV bas. Les oméga-3 (saumon, sardines) améliorent le RMSSD en 24-48h. Le magnésium (amandes) active le GABA — frein naturel du système sympathique.'
-    : 'Repas légers = moins d\'énergie en digestion = plus pour récupérer. Sardines + avocat = duo EPA/DHA + acide oléique le plus concentré. Cerises acidulées à 15h = mélatonine naturelle pour préparer ton sommeil.';
-
+    ? 'Les anthocyanines (myrtilles) + curcumine ciblent les cytokines inflammatoires. Les oméga-3 améliorent le RMSSD en 24-48h. Le magnésium (amandes) active le GABA.'
+    : 'Repas légers = plus d\'énergie pour récupérer. Sardines + avocat = duo EPA/DHA optimal. Cerises acidulées à 15h = mélatonine naturelle.';
   const sportReco = rec >= 67
     ? 'Système nerveux pleinement récupéré. Le HIIT crée un stress positif qui améliore le HRV long terme.'
     : rec >= 34
-    ? 'HRV bas = système sympathique actif. Le HIIT aggraverait demain. La Zone 2 maintient l\'adaptation sans surcharger le système autonome.'
-    : 'Zone rouge. Chaque effort détourne l\'énergie de la réparation. Le repos est le seul chemin vers la remontée.';
-
+    ? 'HRV bas = système sympathique actif. La Zone 2 maintient l\'adaptation sans surcharger le système autonome.'
+    : 'Zone rouge. Le repos est le seul chemin vers la remontée.';
   const sleepReco = 'Les fibres solubles ce soir favorisent le sommeil profond. Stop caféine à ' +
-    (rec < 34 ? '13h00' : rec < 50 ? '13h30' : '14h00') + ' pour ne pas fragmenter le REM. Coucher à ' +
+    (rec < 34 ? '13h00' : rec < 50 ? '13h30' : '14h00') + '. Coucher à ' +
     (rec < 34 ? '21h30' : rec < 50 ? '22h00' : rec < 67 ? '22h30' : '23h00') + '.';
-
   return { foodReco, sportReco, sleepReco };
 }
 
-// ── BUILD MESSAGES ─────────────────────────────────────────
+// ── BUILD TEXT MESSAGES ───────────────────────────────────
 function buildMessages(m, userName) {
   const rec  = m.recoveryScore;
   const rE   = rec >= 67 ? '🟢' : rec >= 34 ? '🟡' : '🔴';
@@ -182,18 +265,15 @@ function buildMessages(m, userName) {
   const guideline = getGuideline(m);
   const meals     = getDayMeals(rec);
   const sport     = getSport(m);
-  const reco      = getScientificReco(m);
+  const reco      = getReco(m);
   const defi      = getDefi(rec);
 
-  const modeLabel = meals.mode === 'performance' ? '⚡ Performance'
-                  : meals.mode === 'recovery'    ? '🔄 Recovery'
-                  :                               '🧘 Repos total';
-
+  const modeLabel = meals.mode === 'performance' ? '⚡ Performance' : meals.mode === 'recovery' ? '🔄 Recovery' : '🧘 Repos total';
   const foodIntro = meals.mode === 'performance'
     ? 'Privilégie glucides complexes + protéines. Score ' + rec + '% = corps prêt pour effort intense.'
     : meals.mode === 'recovery'
     ? 'Privilégie les anti-inflammatoires. HRV ' + m.hrv + 'ms = inflammation active.'
-    : 'Privilégie aliments faciles à digérer. Zone rouge ' + rec + '% — énergie digestive = énergie de récupération.';
+    : 'Privilégie aliments faciles à digérer. Zone rouge ' + rec + '%.';
 
   const sieste = (rec < 50 || parseFloat(m.sleepHours) < 6.5) ? 'Oui — 20 min (13h-15h)' : 'Non nécessaire';
   const bed    = rec < 34 ? '21h30' : rec < 50 ? '22h00' : rec < 67 ? '22h30' : '23h00';
@@ -202,7 +282,6 @@ function buildMessages(m, userName) {
 
   const fmtAlt = (alt) => alt.split(' · ').map(a => '• ' + a).join('\n');
 
-  // ── MESSAGE 1 ─────────────────────────────────────────────
   const msg1 =
 `*Iris ✦*
 
@@ -244,7 +323,6 @@ ${meals.dinner.ingredients}
 → ${meals.dinner.macros}
 ${fmtAlt(meals.dinner.alt)}`;
 
-  // ── MESSAGE 2 ─────────────────────────────────────────────
   const msg2 =
 `*Iris ✦* — Sport & Récupération 💪
 
@@ -279,7 +357,7 @@ Sieste : ${sieste}
 ━━━━━━━━━━━━━━━
 _Iris · Powered by Vitae & WHOOP_`;
 
-  return { msg1, msg2 };
+  return { msg1, msg2, meals, defi };
 }
 
 // ── HANDLER ───────────────────────────────────────────────
@@ -287,14 +365,29 @@ module.exports = async (req, res) => {
   const userName = process.env.USER_NAME || 'Arthur';
 
   try {
-    const metrics        = await getWhoopMetrics();
-    const { msg1, msg2 } = buildMessages(metrics, userName);
+    const metrics = await getWhoopMetrics();
+    const { msg1, msg2, meals, defi } = buildMessages(metrics, userName);
 
     const client = twilio(
       process.env.TWILIO_ACCOUNT_SID,
       process.env.TWILIO_AUTH_TOKEN
     );
 
+    // ── 1. Génère et envoie le vocal ──────────────────────
+    const vocalScript = buildVocalScript(metrics, userName, meals, defi);
+    const audioBuffer = await generateAudio(vocalScript);
+    const audioUrl    = await uploadToCloudinary(audioBuffer);
+
+    await client.messages.create({
+      from:     process.env.TWILIO_WHATSAPP_FROM,
+      to:       process.env.YOUR_WHATSAPP_NUMBER,
+      body:     '',
+      mediaUrl: [audioUrl],
+    });
+
+    await new Promise(r => setTimeout(r, 2000));
+
+    // ── 2. Message 1 : food ───────────────────────────────
     await client.messages.create({
       from: process.env.TWILIO_WHATSAPP_FROM,
       to:   process.env.YOUR_WHATSAPP_NUMBER,
@@ -303,19 +396,21 @@ module.exports = async (req, res) => {
 
     await new Promise(r => setTimeout(r, 1500));
 
+    // ── 3. Message 2 : sport & récup ──────────────────────
     const result = await client.messages.create({
       from: process.env.TWILIO_WHATSAPP_FROM,
       to:   process.env.YOUR_WHATSAPP_NUMBER,
       body: msg2,
     });
 
-    console.log('[Iris] ✓ 2 messages sent — SID: ' + result.sid);
+    console.log('[Iris] ✓ 3 messages sent (vocal + 2 textes) — SID: ' + result.sid);
     return res.status(200).json({
-      success:  true,
-      recovery: metrics.recoveryScore,
-      mode:     metrics.recoveryScore >= 67 ? 'performance' : metrics.recoveryScore >= 34 ? 'recovery' : 'repos',
-      messages: 2,
-      sid:      result.sid,
+      success:   true,
+      recovery:  metrics.recoveryScore,
+      mode:      metrics.recoveryScore >= 67 ? 'performance' : metrics.recoveryScore >= 34 ? 'recovery' : 'repos',
+      messages:  3,
+      audio_url: audioUrl,
+      sid:       result.sid,
     });
 
   } catch (err) {
