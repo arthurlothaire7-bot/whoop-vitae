@@ -115,41 +115,18 @@ async function generateAudio(text) {
   return Buffer.from(arrayBuffer);
 }
 
-// ── CLOUDINARY UPLOAD ─────────────────────────────────────
-async function uploadToCloudinary(audioBuffer) {
-  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-  const apiKey    = process.env.CLOUDINARY_API_KEY;
-  const apiSecret = process.env.CLOUDINARY_API_SECRET;
+// ── VERCEL BLOB UPLOAD ────────────────────────────────────
+async function uploadAudio(audioBuffer) {
+  const { put } = require('@vercel/blob');
 
-  const crypto    = require('crypto');
-  const FormData  = require('form-data');
-
-  const timestamp = Math.round(Date.now() / 1000);
-  const publicId  = 'iris-recap-' + timestamp;
-
-  // Signature — paramètres triés alphabétiquement
-  const sigString = `public_id=${publicId}&resource_type=video&timestamp=${timestamp}${apiSecret}`;
-  const signature = crypto.createHash('sha1').update(sigString).digest('hex');
-
-  const form = new FormData();
-  form.append('file', audioBuffer, { filename: 'iris.mp3', contentType: 'audio/mpeg' });
-  form.append('api_key', apiKey);
-  form.append('timestamp', timestamp.toString());
-  form.append('public_id', publicId);
-  form.append('signature', signature);
-  form.append('resource_type', 'video');
-
-  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/video/upload`, {
-    method: 'POST',
-    body: form,
-    headers: form.getHeaders(),
+  const filename = 'iris-recap-' + Date.now() + '.mp3';
+  const blob = await put(filename, audioBuffer, {
+    access: 'public',
+    contentType: 'audio/mpeg',
+    token: process.env.BLOB_READ_WRITE_TOKEN,
   });
 
-  const txt = await res.text();
-  if (!res.ok) throw new Error('Cloudinary upload error: ' + txt);
-
-  const data = JSON.parse(txt);
-  return data.secure_url;
+  return blob.url;
 }
 
 // ── DÉFIS ─────────────────────────────────────────────────
@@ -377,7 +354,7 @@ module.exports = async (req, res) => {
     // ── 1. Génère et envoie le vocal ──────────────────────
     const vocalScript = buildVocalScript(metrics, userName, meals, defi);
     const audioBuffer = await generateAudio(vocalScript);
-    const audioUrl    = await uploadToCloudinary(audioBuffer);
+    const audioUrl    = await uploadAudio(audioBuffer);
 
     await client.messages.create({
       from:     process.env.TWILIO_WHATSAPP_FROM,
