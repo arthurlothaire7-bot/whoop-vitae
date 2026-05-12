@@ -100,10 +100,10 @@ async function generateAudio(text) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'tts-1',
-      input: text,
-      voice: 'nova',      // voix douce et naturelle
-      speed: 0.95,        // légèrement plus lent pour plus de clarté
+   model: 'tts-1-hd',
+   input: text,
+   voice: 'shimmer',
+   speed: 0.9,
     }),
   });
 
