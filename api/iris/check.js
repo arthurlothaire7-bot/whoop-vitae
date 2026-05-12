@@ -121,23 +121,23 @@ async function uploadToCloudinary(audioBuffer) {
   const apiKey    = process.env.CLOUDINARY_API_KEY;
   const apiSecret = process.env.CLOUDINARY_API_SECRET;
 
+  const crypto    = require('crypto');
+  const FormData  = require('form-data');
+
   const timestamp = Math.round(Date.now() / 1000);
   const publicId  = 'iris-recap-' + timestamp;
 
-  // Signature Cloudinary
-  const crypto = require('crypto');
-  const sigString = `public_id=${publicId}&timestamp=${timestamp}${apiSecret}`;
+  // Signature — paramètres triés alphabétiquement
+  const sigString = `public_id=${publicId}&resource_type=video&timestamp=${timestamp}${apiSecret}`;
   const signature = crypto.createHash('sha1').update(sigString).digest('hex');
 
-  // FormData avec le buffer audio
-  const FormData = require('form-data');
   const form = new FormData();
   form.append('file', audioBuffer, { filename: 'iris.mp3', contentType: 'audio/mpeg' });
   form.append('api_key', apiKey);
   form.append('timestamp', timestamp.toString());
   form.append('public_id', publicId);
   form.append('signature', signature);
-  form.append('resource_type', 'video'); // Cloudinary utilise "video" pour l'audio
+  form.append('resource_type', 'video');
 
   const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/video/upload`, {
     method: 'POST',
@@ -145,9 +145,10 @@ async function uploadToCloudinary(audioBuffer) {
     headers: form.getHeaders(),
   });
 
-  if (!res.ok) throw new Error('Cloudinary upload error: ' + await res.text());
+  const txt = await res.text();
+  if (!res.ok) throw new Error('Cloudinary upload error: ' + txt);
 
-  const data = await res.json();
+  const data = JSON.parse(txt);
   return data.secure_url;
 }
 
