@@ -46,11 +46,72 @@ async function getWhoopMetrics() {
   };
 }
 
+// ── DÉFIS QUOTIDIENS ──────────────────────────────────────
+const DEFIS_PERFORMANCE = [
+  '🔥 Défi : 50 pompes — en 1 set ou fractionné comme tu veux',
+  '🔥 Défi : 50 abdos — crunchs, relevés de jambes ou russian twist',
+  '🔥 Défi : Gainage max — chrono, bats ton record',
+  '🔥 Défi : 100 squats — 5 sets de 20, repos 60s entre chaque',
+  '🔥 Défi : 50 dips — chaise, barres ou canapé',
+  '🔥 Défi : 50 burpees — rythme libre, sans t\'arrêter',
+  '🔥 Défi : 30 tractions — en autant de sets que nécessaire',
+  '🔥 Défi : 50 fentes — 25 par jambe, alternées',
+  '🔥 Défi : 100 mountain climbers — rythme explosif',
+  '🔥 Défi : 3 séries de 20 pompes + 20 squats + 20 abdos — sans pause',
+  '🔥 Défi : Gainage latéral 60s chaque côté + gainage frontal 90s',
+  '🔥 Défi : 50 jump squats — explosivité maximale',
+  '🔥 Défi : 10 min yoga — sun salutation x10',
+  '🔥 Défi : 5 min cohérence cardiaque — inspire 5s, expire 5s, sans t\'arrêter',
+];
+
+const DEFIS_RECOVERY = [
+  '🌿 Défi : 10 min yoga doux — focus mobilité hanches et épaules',
+  '🌿 Défi : 5 min respiration profonde — inspire 4s, retiens 4s, expire 4s',
+  '🌿 Défi : 10 min méditation — ferme les yeux, focus sur ta respiration',
+  '🌿 Défi : 50 abdos lents — tempo 3s montée, 3s descente',
+  '🌿 Défi : Gainage 3x45s — pause 30s entre chaque',
+  '🌿 Défi : 10 min étirements — ischios, quadriceps, pectoraux',
+  '🌿 Défi : 50 pompes à rythme lent — qualité sur quantité',
+  '🌿 Défi : 5 min cohérence cardiaque — réduit le cortisol de 30%',
+  '🌿 Défi : 10 min yoga — yin yoga, postures tenues 2 min',
+  '🌿 Défi : 50 fentes — lentes et contrôlées, 25 par jambe',
+  '🌿 Défi : 10 min méditation body scan — scanne chaque partie du corps',
+  '🌿 Défi : 3x 40 abdos — crunchs + obliques + relevés de jambes',
+  '🌿 Défi : 5 min respiration box — inspire 4s, retiens 4s, expire 4s, retiens 4s',
+  '🌿 Défi : 10 min étirements dynamiques — rotations épaules, hanches, chevilles',
+];
+
+const DEFIS_REPOS = [
+  '🧘 Défi : 10 min méditation — ferme les yeux, laisse les pensées passer',
+  '🧘 Défi : 5 min cohérence cardiaque — levier direct sur ton HRV',
+  '🧘 Défi : 10 min yoga nidra — allongé, scan corporel complet',
+  '🧘 Défi : 5 min respiration 4-7-8 — inspire 4s, retiens 7s, expire 8s',
+  '🧘 Défi : 10 min étirements doux — sans forcer, écoute ton corps',
+  '🧘 Défi : 5 min méditation pleine conscience — focus sur les sons autour',
+  '🧘 Défi : Respiration nasale alternée — 5 min, calme le système nerveux',
+  '🧘 Défi : 10 min yoga restauratif — postures passives avec support',
+  '🧘 Défi : 5 min cohérence cardiaque + visualisation positive',
+  '🧘 Défi : 10 min méditation compassion — pense à ce que tu es reconnaissant',
+  '🧘 Défi : 5 min respiration profonde allongé — expire 2x plus long que l\'inspire',
+  '🧘 Défi : 10 min étirements — focus cervicales, trapèzes, lombaires',
+  '🧘 Défi : 5 min cohérence cardiaque avant le déjeuner',
+  '🧘 Défi : 10 min marche consciente — sens chaque pas, sans téléphone',
+];
+
+function getDefi(recoveryScore) {
+  const today = new Date();
+  const dayOfYear = Math.floor((today - new Date(today.getFullYear(), 0, 0)) / 86400000);
+
+  if (recoveryScore >= 67) return DEFIS_PERFORMANCE[dayOfYear % DEFIS_PERFORMANCE.length];
+  if (recoveryScore >= 34) return DEFIS_RECOVERY[dayOfYear % DEFIS_RECOVERY.length];
+  return DEFIS_REPOS[dayOfYear % DEFIS_REPOS.length];
+}
+
 // ── GUIDELINE ─────────────────────────────────────────────
 function getGuideline(m) {
   const rec = m.recoveryScore;
-  const sl  = parseFloat(m.sleepHours) || 0;
   const str = parseFloat(m.strain);
+  const sl  = parseFloat(m.sleepHours) || 0;
 
   if (rec >= 67 && m.sleepPerf >= 75)
     return 'Aujourd\'hui, basé sur ta data, je te recommande de *pousser fort* — système nerveux pleinement récupéré, c\'est le bon jour pour performer.';
@@ -62,7 +123,7 @@ function getGuideline(m) {
     return 'Aujourd\'hui, basé sur ta data, je te recommande de *réduire l\'effort* — marche et anti-inflammatoires uniquement.';
   if (sl < 5.5)
     return 'Aujourd\'hui, basé sur ta data, je te recommande de *tout miser sur le sommeil de ce soir* — nuit trop courte + zone rouge.';
-  return 'Aujourd\'hui, basé sur ta data, je te recommande le *repos complet* — zone rouge, tout entraînement retarde la récupération de 24-48h.';
+  return 'Aujourd\'hui, basé sur ta data, je te recommande le *repos complet* — zone rouge, tout entraînement retarde ta récupération de 24-48h.';
 }
 
 // ── SPORT ─────────────────────────────────────────────────
@@ -72,7 +133,7 @@ function getSport(m) {
 
   if (rec >= 67) return {
     duree: '1h', type: 'HIIT ou Musculation lourde', intensite: '75-85% FC max', pas: '12 000 pas',
-    why: 'HRV ' + m.hrv + 'ms + score ' + rec + '% = signal vert. Le HIIT génère un stress positif qui améliore ton HRV long terme. Ne rate pas cette fenêtre.'
+    why: 'HRV ' + m.hrv + 'ms + score ' + rec + '% = signal vert. Ne rate pas cette fenêtre.'
   };
   if (rec >= 50) return {
     duree: '45 min', type: str > 12 ? 'Yoga ou Mobilité' : 'Muscu légère ou Zone 2', intensite: '60-70% FC max', pas: '10 000 pas',
@@ -84,19 +145,19 @@ function getSport(m) {
   };
   return {
     duree: 'Repos complet', type: 'Marche douce si besoin', intensite: '—', pas: '5 000 pas',
-    why: 'Stop. À ' + rec + '%, tout entraînement retarde la récupération de 24-48h.'
+    why: 'À ' + rec + '%, tout entraînement retarde la récupération de 24-48h.'
   };
 }
 
-// ── RECO SCIENTIFIQUE ─────────────────────────────────────
-function getScientificReco(m, meals) {
+// ── RECO ──────────────────────────────────────────────────
+function getScientificReco(m) {
   const rec = m.recoveryScore;
 
   const foodReco = rec >= 67
-    ? 'Fibres solubles (avoine) stabilisent ta glycémie sur 3-4h. EPA/DHA (saumon) maintient ton HRV élevé. Les fruits frais améliorent le HRV dans les 24h suivant la consommation.'
+    ? 'Fibres solubles (avoine) stabilisent ta glycémie sur 3-4h. Les oméga-3 (saumon) maintiennent ton HRV élevé. Les fruits frais améliorent le HRV dans les 24h suivant la consommation.'
     : rec >= 34
-    ? 'Anthocyanines (myrtilles) + curcumine ciblent les cytokines inflammatoires liées à ton HRV bas. Les oméga-3 (saumon, sardines) améliorent le RMSSD en 24-48h. Le magnésium (amandes) active le GABA — frein naturel du système sympathique.'
-    : 'Repas légers = moins d\'énergie en digestion = plus pour récupérer. Sardines + avocat = duo EPA/DHA + acide oléique le plus concentré. Cerises acidulées à 15h = mélatonine naturelle pour préparer le sommeil de ce soir.';
+    ? 'Les anthocyanines (myrtilles) + curcumine ciblent les cytokines inflammatoires liées à ton HRV bas. Les oméga-3 (saumon, sardines) améliorent le RMSSD en 24-48h. Le magnésium (amandes) active le GABA — frein naturel du système sympathique.'
+    : 'Repas légers = moins d\'énergie en digestion = plus pour récupérer. Sardines + avocat = duo EPA/DHA + acide oléique le plus concentré. Cerises acidulées à 15h = mélatonine naturelle pour préparer ton sommeil.';
 
   const sportReco = rec >= 67
     ? 'Système nerveux pleinement récupéré. Le HIIT crée un stress positif qui améliore le HRV long terme.'
@@ -121,7 +182,8 @@ function buildMessages(m, userName) {
   const guideline = getGuideline(m);
   const meals     = getDayMeals(rec);
   const sport     = getSport(m);
-  const reco      = getScientificReco(m, meals);
+  const reco      = getScientificReco(m);
+  const defi      = getDefi(rec);
 
   const modeLabel = meals.mode === 'performance' ? '⚡ Performance'
                   : meals.mode === 'recovery'    ? '🔄 Recovery'
@@ -130,19 +192,17 @@ function buildMessages(m, userName) {
   const foodIntro = meals.mode === 'performance'
     ? 'Privilégie glucides complexes + protéines. Score ' + rec + '% = corps prêt pour effort intense.'
     : meals.mode === 'recovery'
-    ? 'Privilégie anti-inflammatoires. HRV ' + m.hrv + 'ms = inflammation active — chaque repas doit réduire le stress nerveux.'
+    ? 'Privilégie les anti-inflammatoires. HRV ' + m.hrv + 'ms = inflammation active.'
     : 'Privilégie aliments faciles à digérer. Zone rouge ' + rec + '% — énergie digestive = énergie de récupération.';
 
-  const sieste = (rec < 50 || parseFloat(m.sleepHours) < 6.5)
-    ? 'Oui — 20 min (13h-15h)'
-    : 'Non nécessaire';
-  const bed  = rec < 34 ? '21h30' : rec < 50 ? '22h00' : rec < 67 ? '22h30' : '23h00';
-  const caff = rec < 34 ? '13h00' : rec < 50 ? '13h30' : '14h00';
-  const alc  = rec < 34 ? '🚫 Éviter absolument' : rec < 50 ? '⚠️ À éviter ce soir' : '✓ Avec modération';
+  const sieste = (rec < 50 || parseFloat(m.sleepHours) < 6.5) ? 'Oui — 20 min (13h-15h)' : 'Non nécessaire';
+  const bed    = rec < 34 ? '21h30' : rec < 50 ? '22h00' : rec < 67 ? '22h30' : '23h00';
+  const caff   = rec < 34 ? '13h00' : rec < 50 ? '13h30' : '14h00';
+  const alc    = rec < 34 ? '🚫 Éviter absolument' : rec < 50 ? '⚠️ À éviter ce soir' : '✓ Avec modération';
 
-  // ── MESSAGE 1 : Nuit + Mode + Guideline + 4 repas ─────────
   const fmtAlt = (alt) => alt.split(' · ').map(a => '• ' + a).join('\n');
 
+  // ── MESSAGE 1 ─────────────────────────────────────────────
   const msg1 =
 `*Iris ✦*
 
@@ -184,7 +244,7 @@ ${meals.dinner.ingredients}
 → ${meals.dinner.macros}
 ${fmtAlt(meals.dinner.alt)}`;
 
-  // ── MESSAGE 2 : Sport + Récup + Pourquoi ──────────────────
+  // ── MESSAGE 2 ─────────────────────────────────────────────
   const msg2 =
 `*Iris ✦* — Sport & Récupération 💪
 
@@ -195,6 +255,9 @@ ${fmtAlt(meals.dinner.alt)}`;
 🏋️ Type : ${sport.type}
 ❤️ Intensité : ${sport.intensite}
 🚶 Pas cible : ${sport.pas}
+${sport.why}
+
+${defi}
 
 ━━━━━━━━━━━━━━━
 😴 *RÉCUPÉRATION*
